@@ -12,11 +12,14 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 
+	"github.com/kooler/MiddayCommander/internal/actions"
 	bookmarkstore "github.com/kooler/MiddayCommander/internal/bookmarks"
 	"github.com/kooler/MiddayCommander/internal/config"
 	midfs "github.com/kooler/MiddayCommander/internal/fs"
 	archivefs "github.com/kooler/MiddayCommander/internal/fs/archive"
 	localfs "github.com/kooler/MiddayCommander/internal/fs/local"
+	sftpfs "github.com/kooler/MiddayCommander/internal/fs/sftp"
+	profilesstore "github.com/kooler/MiddayCommander/internal/profiles"
 	"github.com/kooler/MiddayCommander/internal/tui/dialogs"
 	"github.com/kooler/MiddayCommander/internal/ui/cmdexec"
 	"github.com/kooler/MiddayCommander/internal/ui/fuzzy"
@@ -63,6 +66,8 @@ type Model struct {
 	dialog      *dialogs.Model
 	fuzzy       *fuzzy.Model
 	bookmarks   *dialogs.BookmarksModel
+	profiles    *dialogs.ProfilesModel
+	connect     *dialogs.ConnectModel
 	help        *help.Model
 	themePicker *themepicker.Model
 	cmdExec     *cmdexec.Model
@@ -72,6 +77,8 @@ type Model struct {
 
 	// Bookmark store
 	bookmarkStore *bookmarkstore.Store
+	profileStore  *profilesstore.Store
+	profilesErr   error
 
 	// Pending operation state (saved while dialog is open)
 	pendingSources []midfs.URI
@@ -99,7 +106,7 @@ func New() Model {
 		cwd = home
 	}
 
-	router := midfs.NewRouter(localfs.New(), archivefs.New())
+	router := midfs.NewRouter(localfs.New(), archivefs.New(), sftpfs.New())
 
 	panelKM := panelKeyMapFromConfig(cfg.Keys)
 
@@ -115,6 +122,11 @@ func New() Model {
 		}
 	}
 
+	profileStore, profileErr := profilesstore.LoadStore()
+	if profileStore == nil {
+		profileStore = &profilesstore.Store{}
+	}
+
 	return Model{
 		router:         router,
 		leftPanel:      left,
@@ -126,7 +138,17 @@ func New() Model {
 		menuItems:      menubar.DefaultItems(cfg),
 		shiftMenuItems: menubar.ShiftItems(cfg),
 		bookmarkStore:  bookmarkstore.LoadStore(),
+		profileStore:   profileStore,
+		profilesErr:    profileErr,
 	}
+}
+
+// Close releases any router-owned resources such as pooled remote connections.
+func (m Model) Close() error {
+	if m.router == nil {
+		return nil
+	}
+	return m.router.Close()
 }
 
 func panelKeyMapFromConfig(keys config.KeyBindings) panel.KeyMap {
@@ -210,6 +232,28 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case dialogs.BookmarkDismissMsg:
 		m.bookmarks = nil
+		return m, nil
+
+	case dialogs.ProfileSelectMsg:
+		m.profiles = nil
+		m.activePanel().SetURI(msg.URI)
+		return m, m.activePanel().LoadDir()
+
+	case dialogs.ProfilesDismissMsg:
+		m.profiles = nil
+		return m, nil
+
+	case dialogs.ConnectOpenMsg:
+		m.profiles = nil
+		return m.startConnect()
+
+	case dialogs.ConnectSubmitMsg:
+		m.connect = nil
+		m.activePanel().SetURI(msg.URI)
+		return m, m.activePanel().LoadDir()
+
+	case dialogs.ConnectDismissMsg:
+		m.connect = nil
 		return m, nil
 
 	// Fuzzy finder internal messages — route to fuzzy model
@@ -348,6 +392,18 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, cmd
 		}
 
+		if m.profiles != nil {
+			newProfiles, cmd := m.profiles.Update(msg)
+			m.profiles = &newProfiles
+			return m, cmd
+		}
+
+		if m.connect != nil {
+			newConnect, cmd := m.connect.Update(msg)
+			m.connect = &newConnect
+			return m, cmd
+		}
+
 		// Theme picker gets priority when active
 		if m.themePicker != nil {
 			newTP, cmd := m.themePicker.Update(msg)
@@ -428,6 +484,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case key.Matches(msg, m.keyMap.GoTo):
 			return m.startGoTo()
 
+		case key.Matches(msg, m.keyMap.RemoteConnect):
+			return m.startProfiles()
+
 		case key.Matches(msg, m.keyMap.FuzzyFind):
 			return m.startFuzzyFind()
 
@@ -477,6 +536,14 @@ func (m Model) View() string {
 		box := m.bookmarks.View(m.theme, m.width, m.height)
 		bw, bh := m.bookmarks.BoxSize(m.width, m.height)
 		screen = overlay.Place(screen, box, m.width, m.height, bw, bh)
+	} else if m.profiles != nil {
+		box := m.profiles.View(m.theme, m.width, m.height)
+		bw, bh := m.profiles.BoxSize(m.width, m.height)
+		screen = overlay.Place(screen, box, m.width, m.height, bw, bh)
+	} else if m.connect != nil {
+		box := m.connect.View(m.theme, m.width, m.height)
+		bw, bh := m.connect.BoxSize(m.width, m.height)
+		screen = overlay.Place(screen, box, m.width, m.height, bw, bh)
 	} else if m.themePicker != nil {
 		box := m.themePicker.View(m.theme, m.width, m.height)
 		bw, bh := m.themePicker.BoxSize(m.width, m.height)
@@ -520,6 +587,8 @@ func (m Model) dispatchKey(raw string) (tea.Model, tea.Cmd) {
 		return m.startEdit()
 	case contains(cfg.GoTo, raw):
 		return m.startGoTo()
+	case contains(cfg.RemoteConnect, raw):
+		return m.startProfiles()
 	case contains(cfg.Help, raw):
 		return m.startHelp()
 	case contains(cfg.Bookmarks, raw):
@@ -577,6 +646,9 @@ func (m Model) startCopy() (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 	dest := m.inactivePanel()
+	if actions.InvolvesSFTPTransfer(sources, dest) {
+		return m.showError("Copy Error", actions.UnsupportedSFTPTransferError("copy"))
+	}
 	m.pendingSources = sources
 	m.pendingDest = dest
 
@@ -592,6 +664,9 @@ func (m Model) startMove() (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 	dest := m.inactivePanel()
+	if actions.InvolvesSFTPTransfer(sources, dest) {
+		return m.showError("Move Error", actions.UnsupportedSFTPTransferError("move"))
+	}
 	m.pendingSources = sources
 	m.pendingDest = dest
 
@@ -649,6 +724,25 @@ func (m Model) startHelp() (tea.Model, tea.Cmd) {
 func (m Model) startBookmarks() (tea.Model, tea.Cmd) {
 	bm := dialogs.NewBookmarks(m.bookmarkStore, m.activePanel().URI(), m.width, m.height)
 	m.bookmarks = &bm
+	return m, nil
+}
+
+func (m Model) startProfiles() (tea.Model, tea.Cmd) {
+	if m.profilesErr != nil {
+		return m.showError("Profiles Error", m.profilesErr)
+	}
+	if m.profileStore == nil || len(m.profileStore.All()) == 0 {
+		return m.startConnect()
+	}
+
+	pm := dialogs.NewProfiles(m.profileStore, m.width, m.height)
+	m.profiles = &pm
+	return m, nil
+}
+
+func (m Model) startConnect() (tea.Model, tea.Cmd) {
+	cm := dialogs.NewConnect(m.activePanel().URI(), m.width, m.height)
+	m.connect = &cm
 	return m, nil
 }
 
