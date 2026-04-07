@@ -16,6 +16,21 @@ const (
 	SortByExtension
 )
 
+func (s SortMode) String() string {
+	switch s {
+	case SortByName:
+		return "Name"
+	case SortBySize:
+		return "Size"
+	case SortByTime:
+		return "Time"
+	case SortByExtension:
+		return "Ext"
+	default:
+		return "Unknown"
+	}
+}
+
 func SortEntries(entries []midfs.Entry, mode SortMode) {
 	sort.SliceStable(entries, func(i, j int) bool {
 		a, b := entries[i], entries[j]

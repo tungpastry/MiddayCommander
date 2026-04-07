@@ -25,6 +25,7 @@ type KeyMap struct {
 	SelectUp     key.Binding
 	SelectDown   key.Binding
 	QuickSearch  key.Binding
+	Sort         key.Binding
 }
 
 type Model struct {
@@ -219,6 +220,9 @@ func (m *Model) Update(msg tea.KeyMsg) tea.Cmd {
 	case key.Matches(msg, km.QuickSearch):
 		m.searching = true
 		m.searchQuery = ""
+	case key.Matches(msg, km.Sort):
+		m.ChangeSortMode()
+		return nil
 	default:
 		s := msg.String()
 		if len(s) == 1 && ((s[0] >= 'a' && s[0] <= 'z') || (s[0] >= 'A' && s[0] <= 'Z') || (s[0] >= '0' && s[0] <= '9') || s[0] == '.' || s[0] == '_' || s[0] == '-') {

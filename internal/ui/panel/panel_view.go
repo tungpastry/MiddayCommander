@@ -55,7 +55,7 @@ func (m Model) View(th theme.Theme) string {
 		if parent := m.router.Parent(m.dir); parent.String() != m.dir.String() {
 			count--
 		}
-		footerText = fmt.Sprintf(" %d files ", count)
+		footerText = fmt.Sprintf(" %d files [%s] ", count, m.sortMode.String())
 	}
 	footerLine := borderStyle.Render("└") +
 		headerStyle.Render(truncOrPad(footerText, innerWidth)) +

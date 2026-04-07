@@ -181,6 +181,7 @@ func panelKeyMapFromConfig(keys config.KeyBindings) panel.KeyMap {
 		SelectUp:     binding(keys.SelectUp, "select up"),
 		SelectDown:   binding(keys.SelectDown, "select down"),
 		QuickSearch:  binding(keys.QuickSearch, "quick search"),
+		Sort:         binding(keys.Sort, "sort"),
 	}
 }
 

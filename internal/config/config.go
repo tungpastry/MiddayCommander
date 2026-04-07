@@ -64,6 +64,7 @@ type KeyBindings struct {
 	Help          StringOrList `toml:"help"`
 	ThemePicker   StringOrList `toml:"theme_picker"`
 	CmdExec       StringOrList `toml:"cmd_exec"`
+	Sort          StringOrList `toml:"sort"`
 }
 
 // StringOrList can unmarshal from either a single string or a list of strings.
@@ -132,6 +133,7 @@ func DefaultKeyBindings() KeyBindings {
 		Help:          StringOrList{"f1"},
 		ThemePicker:   StringOrList{"ctrl+t"},
 		CmdExec:       StringOrList{"ctrl+r"},
+		Sort:          StringOrList{"ctrl+o"},
 	}
 }
 
@@ -195,6 +197,7 @@ func mergeKeys(dst, src *KeyBindings) {
 	mergeKey(&dst.Help, src.Help)
 	mergeKey(&dst.ThemePicker, src.ThemePicker)
 	mergeKey(&dst.CmdExec, src.CmdExec)
+	mergeKey(&dst.Sort, src.Sort)
 }
 
 func mergeKey(dst *StringOrList, src StringOrList) {
@@ -252,6 +255,7 @@ func normalizeAllKeys(kb *KeyBindings) {
 	normalizeSlice(&kb.Help)
 	normalizeSlice(&kb.ThemePicker)
 	normalizeSlice(&kb.CmdExec)
+	normalizeSlice(&kb.Sort)
 }
 
 // SaveTheme writes the theme name to the config file, preserving other settings.
