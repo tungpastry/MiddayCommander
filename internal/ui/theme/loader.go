@@ -67,9 +67,12 @@ type menuTOML struct {
 
 // Theme source constants.
 const (
+	// SourceDefault cho biết giao diện là mặc định được mã hóa cứng.
 	SourceDefault = "default"
-	SourceLocal   = "local"
-	SourceRemote  = "remote"
+	// SourceLocal cho biết giao diện được tải từ một tệp cục bộ.
+	SourceLocal = "local"
+	// SourceRemote cho biết giao diện được phân tích từ một nguồn từ xa.
+	SourceRemote = "remote"
 )
 
 // AvailableTheme represents a discovered theme that can be selected.
@@ -163,17 +166,21 @@ func ParseTOML(key string, data []byte) (AvailableTheme, error) {
 	}, nil
 }
 
-// ThemesDir returns the path to ~/.config/mdc/themes/.
+// ThemesDir trả về đường dẫn đến ~/.config/mdc/themes/.
 func ThemesDir() string {
 	return config.ThemesDir()
 }
 
 // LoadByName loads a theme by name from ~/.config/mdc/themes/<name>.toml.
+// LoadByName tải một giao diện theo tên từ ~/.config/mdc/themes/<name>.toml.
 func LoadByName(name string) (Theme, error) {
 	path := filepath.Join(config.ThemesDir(), name+".toml")
 	return LoadFromFile(path)
 }
 
+// buildTheme xây dựng một Theme từ một ThemeFile, áp dụng các giá trị mặc định cho bất kỳ
+// giá trị nào không được chỉ định. Nó phân giải màu sắc từ bảng màu và tạo các
+// thể hiện lipgloss.Style cho mỗi thành phần giao diện.
 func buildTheme(tf ThemeFile) Theme {
 	p := tf.Palette
 	resolve := func(val string) lipgloss.Color {

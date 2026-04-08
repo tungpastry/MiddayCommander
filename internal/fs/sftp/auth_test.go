@@ -6,6 +6,7 @@ import (
 	"crypto/rsa"
 	"crypto/x509"
 	"encoding/pem"
+	"fmt"
 	"net"
 	"os"
 	"path/filepath"
@@ -110,7 +111,12 @@ func startTestAgent(t *testing.T) (string, func()) {
 		t.Fatalf("keyring.Add() error = %v", err)
 	}
 
-	socket := filepath.Join(t.TempDir(), "agent.sock")
+	socketDir := t.TempDir()
+	if runtime.GOOS != "windows" {
+		socketDir = os.TempDir()
+	}
+	socket := filepath.Join(socketDir, fmt.Sprintf("mdc-agent-%d.sock", os.Getpid()))
+	_ = os.Remove(socket)
 	listener, err := net.Listen("unix", socket)
 	if err != nil {
 		t.Fatalf("Listen(unix) error = %v", err)
@@ -139,6 +145,7 @@ func startTestAgent(t *testing.T) (string, func()) {
 	cleanup := func() {
 		close(done)
 		_ = listener.Close()
+		_ = os.Remove(socket)
 	}
 
 	return socket, cleanup

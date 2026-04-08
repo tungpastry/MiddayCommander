@@ -56,6 +56,9 @@ func NewFileLogger(path string) (*FileLogger, error) {
 	return &FileLogger{file: file}, nil
 }
 
+// Record nối một sự kiện vào tệp nhật ký.
+// Nó đặt dấu thời gian của sự kiện thành time.Now().UTC() nếu chưa được đặt.
+// Thao tác này an toàn cho luồng (thread-safe).
 func (l *FileLogger) Record(_ context.Context, event Event) error {
 	if l == nil || l.file == nil {
 		return nil
@@ -77,6 +80,8 @@ func (l *FileLogger) Record(_ context.Context, event Event) error {
 	return l.file.Sync()
 }
 
+// Close đẩy các ghi và đóng tệp nhật ký.
+// Thao tác này an toàn cho luồng (thread-safe).
 func (l *FileLogger) Close() error {
 	if l == nil || l.file == nil {
 		return nil

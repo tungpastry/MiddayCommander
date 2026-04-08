@@ -5,6 +5,18 @@ import (
 	"path/filepath"
 )
 
+// CacheDir returns the mdc cache directory path.
+func CacheDir() string {
+	if xdg := os.Getenv("XDG_CACHE_HOME"); xdg != "" {
+		return filepath.Join(xdg, "mdc")
+	}
+	cacheDir, err := os.UserCacheDir()
+	if err == nil && cacheDir != "" {
+		return filepath.Join(cacheDir, "mdc")
+	}
+	return filepath.Join(os.TempDir(), "mdc-cache")
+}
+
 // ConfigDir returns the mdc config directory path.
 func ConfigDir() string {
 	if xdg := os.Getenv("XDG_CONFIG_HOME"); xdg != "" {
@@ -45,4 +57,9 @@ func AuditLogPath() string {
 // SecretsPath returns the encrypted fallback secrets store path.
 func SecretsPath() string {
 	return filepath.Join(ConfigDir(), "secrets.json")
+}
+
+// RemoteWorkfilesDir returns the cache path for temporary remote workfiles.
+func RemoteWorkfilesDir() string {
+	return filepath.Join(CacheDir(), "remote")
 }

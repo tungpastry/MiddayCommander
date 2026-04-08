@@ -71,6 +71,18 @@ Remote-capable transfers now support:
 
 Verification is configured before the job is queued and runs after the destination write completes.
 
+### Remote temp workfiles
+
+SFTP preview/edit now stages a local temp copy under:
+
+```text
+os.UserCacheDir()/mdc/remote
+```
+
+Those files are best-effort cleaned up after preview or after edit completion. If upload-back after a remote edit fails, the temp file is intentionally kept and its local path is shown to the user so edits are not lost.
+
+This means remote file contents can temporarily exist on the local machine during `F3` / `F4`, but only inside the cache directory rather than the repo or `~/.config/mdc`.
+
 ### Audit logging
 
 Transfer lifecycle events are written as JSONL records to:
@@ -100,8 +112,7 @@ The following are intentionally not implemented yet:
 - macOS Keychain integration
 - Linux Secret Service integration
 - Windows Credential Manager integration
-- full audit UI
-- transfer pause / resume / cancel UX
+- full audit browsing/filtering UI
 
 These remain Phase 5 or later concerns.
 
@@ -152,6 +163,6 @@ Later phases will add:
 
 - secret storage providers
 - optional password workflows
-- audit browsing UX
+- richer audit browsing UX
 - richer retry policy
 - richer host key UX if needed

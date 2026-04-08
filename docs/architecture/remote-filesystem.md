@@ -41,6 +41,8 @@ The UI works only with typed `fs.URI` and `fs.Entry` values. It never performs a
 - `internal/tui/dialogs/connect.go`
 - `internal/tui/dialogs/transfer_options.go`
 - `internal/tui/dialogs/transfer.go`
+- `internal/ui/fuzzy`
+- `internal/app/remote_workfiles.go`
 - `internal/app/app.go`
 
 ## URI Model
@@ -117,8 +119,26 @@ This allows one session to serve repeated `List`, `Stat`, `OpenReader`, and dire
 - local directories are navigated with `file` URIs
 - archive entry/exit behavior from Phase 1 is preserved
 - remote directories are navigated with `sftp` URIs
+- the same fuzzy overlay now scans both local and SFTP trees through `internal/fs.Router`
 - `Parent()` on an SFTP URI walks the remote path hierarchy and clamps at `/`
 - bookmarks remain URI-based, so remote locations reuse the same bookmark flow as local ones
+
+## Remote View / Edit Helpers
+
+`F3` and `F4` now work on SFTP files through a temp-workfile flow instead of trying to run external tools directly on a remote URI.
+
+The flow is:
+
+1. the app downloads the selected SFTP file through `Router.OpenReader`
+2. the file is staged under `os.UserCacheDir()/mdc/remote`
+3. `F3` opens `$PAGER` on the local temp file and always cleans it up afterward
+4. `F4` opens `$EDITOR` on the local temp file
+5. after the editor exits, the app compares the temp file against the original size and SHA
+6. if unchanged, the temp file is removed
+7. if changed, the user is asked whether to upload back to the remote URI
+8. upload-back uses `Router.OpenWriter` with atomic overwrite and a size verification pass
+
+If upload-back fails, the local temp file is intentionally kept so the user can recover their edits manually.
 
 ## Mutation Rules
 

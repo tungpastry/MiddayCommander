@@ -1,9 +1,10 @@
 package fuzzy
 
 import (
+	"context"
 	"fmt"
-	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"unicode"
 
@@ -23,37 +24,43 @@ type ResultMsg struct {
 // DismissMsg is sent when the user cancels the fuzzy finder.
 type DismissMsg struct{}
 
-// FileWalkMsg delivers a batch of discovered paths.
+// ResultItem is a fuzzy-searchable entry tied to a concrete URI.
+type ResultItem struct {
+	URI     midfs.URI
+	Display string
+}
+
+// FileWalkMsg delivers a batch of discovered items.
 type FileWalkMsg struct {
-	Paths []string
+	Items []ResultItem
 	Done  bool
 }
 
 // Model is the fuzzy finder overlay.
 type Model struct {
-	query     string
-	allPaths  []string     // all discovered paths (accumulated)
-	matches   []match      // filtered + scored results
-	cursor    int          // selected result index
-	offset    int          // scroll offset
-	rootURI   midfs.URI
-	rootDir   string       // directory being searched
-	walking   bool         // true while background walker is running
-	width     int
-	height    int
+	query    string
+	allItems []ResultItem // all discovered items (accumulated)
+	matches  []match      // filtered + scored results
+	cursor   int          // selected result index
+	offset   int          // scroll offset
+	rootURI  midfs.URI
+	walkCmd  tea.Cmd
+	walking  bool // true while background walker is running
+	width    int
+	height   int
 }
 
 type match struct {
-	path       string
-	score      int
-	matchIdxs  []int // character indices that matched in the display name
+	item      ResultItem
+	score     int
+	matchIdxs []int // character indices that matched in the display name
 }
 
 // New creates a new fuzzy finder searching from rootURI.
-func New(rootURI midfs.URI, width, height int) Model {
+func New(rootURI midfs.URI, walkCmd tea.Cmd, width, height int) Model {
 	return Model{
 		rootURI: rootURI,
-		rootDir: rootURI.Path,
+		walkCmd: walkCmd,
 		walking: true,
 		width:   width,
 		height:  height,
@@ -62,7 +69,7 @@ func New(rootURI midfs.URI, width, height int) Model {
 
 // Init starts the background file walker.
 func (m Model) Init() tea.Cmd {
-	return walkFilesCmd(m.rootDir)
+	return m.walkCmd
 }
 
 // Update handles messages.
@@ -73,7 +80,7 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 		m.height = msg.Height
 
 	case FileWalkMsg:
-		m.allPaths = append(m.allPaths, msg.Paths...)
+		m.allItems = append(m.allItems, msg.Items...)
 		m.walking = !msg.Done
 		m.refilter()
 
@@ -83,8 +90,7 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 			return m, func() tea.Msg { return DismissMsg{} }
 		case "enter":
 			if m.cursor >= 0 && m.cursor < len(m.matches) {
-				uri := midfs.NewFileURI(m.matches[m.cursor].path)
-				return m, func() tea.Msg { return ResultMsg{URI: uri} }
+				return m, func() tea.Msg { return ResultMsg{URI: m.matches[m.cursor].item.URI} }
 			}
 			return m, func() tea.Msg { return DismissMsg{} }
 		case "up", "ctrl+p":
@@ -168,7 +174,6 @@ func (m Model) View(th theme.Theme, screenWidth, screenHeight int) string {
 
 	var contentLines []string
 
-	// Search input line
 	status := ""
 	if m.walking {
 		status = " (scanning...)"
@@ -180,7 +185,6 @@ func (m Model) View(th theme.Theme, screenWidth, screenHeight int) string {
 	}
 	contentLines = append(contentLines, inputLine)
 
-	// Results
 	rh := boxH - 4 // borders(2) + input(1) + footer(1)
 	if rh < 1 {
 		rh = 1
@@ -195,11 +199,7 @@ func (m Model) View(th theme.Theme, screenWidth, screenHeight int) string {
 		mt := m.matches[i]
 		isCursor := i == m.cursor
 
-		rel, _ := filepath.Rel(m.rootDir, mt.path)
-		if rel == "" {
-			rel = mt.path
-		}
-		display := rel
+		display := mt.item.Display
 		if len(display) > innerW-1 {
 			display = "…" + display[len(display)-innerW+2:]
 		}
@@ -213,8 +213,7 @@ func (m Model) View(th theme.Theme, screenWidth, screenHeight int) string {
 		contentLines = append(contentLines, line)
 	}
 
-	// Footer
-	countStr := fmt.Sprintf(" %d/%d ", len(m.matches), len(m.allPaths))
+	countStr := fmt.Sprintf(" %d/%d ", len(m.matches), len(m.allItems))
 	footer := dimStyle.Render(countStr)
 	footerWidth := lipgloss.Width(footer)
 	if footerWidth < innerW {
@@ -253,20 +252,19 @@ func (m *Model) clampOffset() {
 }
 
 func (m *Model) refilter() {
-	m.matches = fuzzyFilter(m.allPaths, m.query, m.rootDir)
+	m.matches = fuzzyFilter(m.allItems, m.query)
 	m.cursor = 0
 	m.offset = 0
 }
 
 // --- Fuzzy matching ---
 
-func fuzzyFilter(paths []string, query, rootDir string) []match {
+func fuzzyFilter(items []ResultItem, query string) []match {
 	if query == "" {
-		// Show all paths (up to a limit), no scoring needed
 		var results []match
 		limit := 1000
-		for _, p := range paths {
-			results = append(results, match{path: p, score: 0})
+		for _, item := range items {
+			results = append(results, match{item: item, score: 0})
 			if len(results) >= limit {
 				break
 			}
@@ -277,18 +275,13 @@ func fuzzyFilter(paths []string, query, rootDir string) []match {
 	queryLower := strings.ToLower(query)
 	var results []match
 
-	for _, p := range paths {
-		rel, _ := filepath.Rel(rootDir, p)
-		if rel == "" {
-			rel = p
-		}
-		score, idxs := fuzzyMatch(rel, queryLower)
+	for _, item := range items {
+		score, idxs := fuzzyMatch(item.Display, queryLower)
 		if score > 0 {
-			results = append(results, match{path: p, score: score, matchIdxs: idxs})
+			results = append(results, match{item: item, score: score, matchIdxs: idxs})
 		}
 	}
 
-	// Sort by score descending (simple insertion sort, fast enough for interactive use)
 	for i := 1; i < len(results); i++ {
 		for j := i; j > 0 && results[j].score > results[j-1].score; j-- {
 			results[j], results[j-1] = results[j-1], results[j]
@@ -315,15 +308,12 @@ func fuzzyMatch(target, queryLower string) (int, []int) {
 		if targetLower[ti] == queryLower[qi] {
 			idxs = append(idxs, ti)
 			score += 10
-			// Bonus for consecutive matches
 			if prevMatch {
 				score += 5
 			}
-			// Bonus for matching at word boundary
 			if ti == 0 || target[ti-1] == '/' || target[ti-1] == '_' || target[ti-1] == '-' || target[ti-1] == '.' {
 				score += 10
 			}
-			// Bonus for exact case match
 			if target[ti] == queryLower[qi] || (qi < len(queryLower) && unicode.ToUpper(rune(target[ti])) == unicode.ToUpper(rune(queryLower[qi]))) {
 				score++
 			}
@@ -335,37 +325,106 @@ func fuzzyMatch(target, queryLower string) (int, []int) {
 	}
 
 	if qi < len(queryLower) {
-		return 0, nil // not all query chars matched
+		return 0, nil
 	}
 
-	// Prefer shorter paths (basename matches)
 	score -= len(target) / 5
-
 	return score, idxs
 }
 
 // --- File walker ---
 
-func walkFilesCmd(rootDir string) tea.Cmd {
+const walkLimit = 50000
+
+// WalkCmd recursively discovers entries under rootURI using the shared router.
+func WalkCmd(router *midfs.Router, rootURI midfs.URI) tea.Cmd {
 	return func() tea.Msg {
-		var paths []string
-		_ = filepath.WalkDir(rootDir, func(path string, d os.DirEntry, err error) error {
-			if err != nil {
-				return nil // skip errors
-			}
-			name := d.Name()
-			// Skip hidden dirs and common large directories
-			if d.IsDir() && (strings.HasPrefix(name, ".") || name == "node_modules" || name == "vendor" || name == "__pycache__") {
-				return filepath.SkipDir
-			}
-			paths = append(paths, path)
-			if len(paths) >= 50000 {
-				return filepath.SkipAll
-			}
-			return nil
-		})
-		return FileWalkMsg{Paths: paths, Done: true}
+		items := walkEntries(context.Background(), router, rootURI)
+		return FileWalkMsg{Items: items, Done: true}
 	}
+}
+
+func walkEntries(ctx context.Context, router *midfs.Router, rootURI midfs.URI) []ResultItem {
+	if router == nil {
+		return nil
+	}
+
+	type pendingDir struct {
+		uri    midfs.URI
+		isRoot bool
+	}
+
+	var (
+		items []ResultItem
+		stack = []pendingDir{{uri: rootURI, isRoot: true}}
+	)
+
+	for len(stack) > 0 && len(items) < walkLimit {
+		current := stack[len(stack)-1]
+		stack = stack[:len(stack)-1]
+
+		if current.isRoot {
+			items = append(items, ResultItem{
+				URI:     current.uri.Clone(),
+				Display: current.uri.Display(),
+			})
+			if len(items) >= walkLimit {
+				break
+			}
+		}
+
+		entries, err := router.List(ctx, current.uri)
+		if err != nil {
+			continue
+		}
+
+		sort.Slice(entries, func(i, j int) bool {
+			return strings.ToLower(entries[i].Name) < strings.ToLower(entries[j].Name)
+		})
+
+		for _, entry := range entries {
+			if entry.IsDir() && shouldSkipDir(entry.Name) {
+				continue
+			}
+
+			items = append(items, ResultItem{
+				URI:     entry.URI.Clone(),
+				Display: relativeDisplay(rootURI, entry.URI),
+			})
+			if len(items) >= walkLimit {
+				break
+			}
+
+			if entry.IsDir() {
+				stack = append(stack, pendingDir{uri: entry.URI})
+			}
+		}
+	}
+
+	return items
+}
+
+func relativeDisplay(rootURI, uri midfs.URI) string {
+	if rootURI.String() == uri.String() {
+		return rootURI.Display()
+	}
+
+	switch uri.Scheme {
+	case midfs.SchemeFile:
+		if rel, err := filepath.Rel(rootURI.Path, uri.Path); err == nil && rel != "" {
+			return rel
+		}
+	case midfs.SchemeSFTP:
+		if rel, err := filepath.Rel(rootURI.Path, uri.Path); err == nil && rel != "" && rel != "." {
+			return rel
+		}
+	}
+
+	return uri.Display()
+}
+
+func shouldSkipDir(name string) bool {
+	return strings.HasPrefix(name, ".") || name == "node_modules" || name == "vendor" || name == "__pycache__"
 }
 
 // --- Render helpers ---
@@ -384,7 +443,6 @@ func renderWithHighlights(s string, matchIdxs []int, normal, highlight lipgloss.
 			b.WriteString(normal.Render(string(ch)))
 		}
 	}
-	// Pad to width
 	rendered := b.String()
 	visWidth := lipgloss.Width(rendered)
 	if visWidth < width {

@@ -44,12 +44,13 @@ const (
 
 // Dialog tags identify which operation triggered the dialog.
 const (
-	tagCopy   = "copy"
-	tagMove   = "move"
-	tagDelete = "delete"
-	tagMkdir  = "mkdir"
-	tagRename = "rename"
-	tagGoTo   = "goto"
+	tagCopy             = "copy"
+	tagMove             = "move"
+	tagDelete           = "delete"
+	tagMkdir            = "mkdir"
+	tagRename           = "rename"
+	tagGoTo             = "goto"
+	tagRemoteEditUpload = "remote-edit-upload"
 )
 
 // Model is the root application model.
@@ -77,6 +78,7 @@ type Model struct {
 	help            *help.Model
 	themePicker     *themepicker.Model
 	cmdExec         *cmdexec.Model
+	imagePreview    *dialogs.ImagePreviewModel
 	transferHidden  bool
 
 	// Saved theme for reverting on Esc in theme picker
@@ -89,8 +91,9 @@ type Model struct {
 	transferMgr   *transfer.Manager
 
 	// Pending operation state (saved while dialog is open)
-	pendingSources []midfs.URI
-	pendingDest    midfs.URI
+	pendingSources    []midfs.URI
+	pendingDest       midfs.URI
+	pendingRemoteEdit *remoteWorkfile
 
 	// Double-Esc to quit
 	lastEsc time.Time
@@ -343,10 +346,14 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		if entry.IsDir() {
 			m.activePanel().SetURI(msg.URI)
-		} else {
-			m.activePanel().SetURI(m.router.Parent(msg.URI))
+			return m, m.activePanel().LoadDir()
 		}
-		return m, m.activePanel().LoadDir()
+		parent := m.router.Parent(msg.URI)
+		m.activePanel().SetURI(parent)
+		return m, tea.Sequence(
+			m.activePanel().LoadDir(),
+			func() tea.Msg { return panel.RestoreCursorMsg{Name: entry.Name} },
+		)
 
 	case fuzzy.DismissMsg:
 		m.fuzzy = nil
@@ -363,6 +370,55 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case cmdexec.DismissMsg:
 		m.cmdExec = nil
+		return m, m.refreshBothPanels()
+
+	case remoteViewPreparedMsg:
+		if msg.err != nil {
+			return m.showError("Remote View Error", msg.err)
+		}
+		return m, previewRemoteFileCmd(msg.session)
+
+	case remoteViewDoneMsg:
+		cleanupRemoteWorkfile(msg.session)
+		if msg.err != nil {
+			return m.showError("Remote View Error", msg.err)
+		}
+		return m, nil
+
+	case remoteEditPreparedMsg:
+		if msg.err != nil {
+			return m.showError("Remote Edit Error", msg.err)
+		}
+		return m, editRemoteFileCmd(msg.session)
+
+	case remoteEditDoneMsg:
+		if msg.err != nil {
+			m.pendingRemoteEdit = &msg.session
+			return m.showError("Remote Edit Error", fmt.Errorf("%w\nLocal copy kept at %s", msg.err, msg.session.LocalPath))
+		}
+
+		changed, err := remoteWorkfileChanged(msg.session)
+		if err != nil {
+			m.pendingRemoteEdit = &msg.session
+			return m.showError("Remote Edit Error", fmt.Errorf("%w\nLocal copy kept at %s", err, msg.session.LocalPath))
+		}
+		if !changed {
+			cleanupRemoteWorkfile(msg.session)
+			return m, nil
+		}
+
+		m.pendingRemoteEdit = &msg.session
+		d := dialogs.NewConfirm("Upload Remote Changes", fmt.Sprintf("Upload changes back to %s?", msg.session.RemoteURI.Display()), tagRemoteEditUpload)
+		m.dialog = &d
+		return m, nil
+
+	case remoteUploadDoneMsg:
+		session := msg.session
+		m.pendingRemoteEdit = nil
+		if msg.err != nil {
+			return m.showError("Remote Upload Error", fmt.Errorf("%w\nLocal copy kept at %s", msg.err, session.LocalPath))
+		}
+		cleanupRemoteWorkfile(session)
 		return m, m.refreshBothPanels()
 
 	// File action messages from panel (configurable behavior)
@@ -530,6 +586,16 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, cmd
 		}
 
+		// Image preview gets priority
+		if m.imagePreview != nil {
+			newIP, cmd := m.imagePreview.Update(msg)
+			m.imagePreview = newIP
+			if m.imagePreview.Done() {
+				m.imagePreview = nil
+			}
+			return m, cmd
+		}
+
 		// Dialog gets priority
 		if m.dialog != nil {
 			m.dialog.Update(msg)
@@ -677,6 +743,10 @@ func (m Model) View() string {
 		box := m.cmdExec.View(m.theme, m.width, m.height)
 		bw, bh := m.cmdExec.BoxSize(m.width, m.height)
 		screen = overlay.Place(screen, box, m.width, m.height, bw, bh)
+	} else if m.imagePreview != nil {
+		box := m.imagePreview.View(m.theme, m.width, m.height)
+		bw, bh := m.imagePreview.BoxSize(m.width, m.height)
+		screen = overlay.Place(screen, box, m.width, m.height, bw, bh)
 	} else if m.dialog != nil {
 		box := m.dialog.View(m.theme, m.width, m.height)
 		bw, bh := m.dialog.BoxSize(m.width, m.height)
@@ -748,18 +818,36 @@ func contains(keys config.StringOrList, val string) bool {
 
 // fileActionCmd maps a configurable action name to the appropriate command.
 func (m *Model) fileActionCmd(uri midfs.URI, action string) tea.Cmd {
-	if uri.Scheme != midfs.SchemeFile {
-		return func() tea.Msg {
-			return externalDoneMsg{err: fmt.Errorf("external open is only available for local files")}
-		}
-	}
 	switch action {
 	case "edit":
-		return editFileCmd(uri)
+		switch uri.Scheme {
+		case midfs.SchemeFile:
+			return editFileCmd(uri)
+		case midfs.SchemeSFTP:
+			return prepareRemoteEditCmd(m.router, uri)
+		default:
+			return func() tea.Msg {
+				return externalDoneMsg{err: fmt.Errorf("edit is only available for local and SFTP files")}
+			}
+		}
 	case "preview":
-		return viewFileCmd(uri)
+		switch uri.Scheme {
+		case midfs.SchemeFile:
+			ext := strings.ToLower(filepath.Ext(uri.Path))
+			if ext == ".jpg" || ext == ".jpeg" || ext == ".png" || ext == ".gif" {
+				m.imagePreview = dialogs.NewImagePreview(uri.Path, m.width, m.height)
+				return nil
+			}
+			return viewFileCmd(uri)
+		case midfs.SchemeSFTP:
+			return prepareRemoteViewCmd(m.router, uri)
+		default:
+			return func() tea.Msg {
+				return externalDoneMsg{err: fmt.Errorf("preview is only available for local and SFTP files")}
+			}
+		}
 	default:
-		return editFileCmd(uri)
+		return m.fileActionCmd(uri, "edit")
 	}
 }
 
@@ -899,13 +987,15 @@ func (m Model) startCmdExec() (tea.Model, tea.Cmd) {
 }
 
 func (m Model) startFuzzyFind() (tea.Model, tea.Cmd) {
-	path, ok := m.activePanelLocalPath()
-	if !ok {
-		return m.showError("Find Error", fmt.Errorf("fuzzy find is only available in local directories"))
+	rootURI := m.activePanel().URI()
+	switch rootURI.Scheme {
+	case midfs.SchemeFile, midfs.SchemeSFTP:
+		f := fuzzy.New(rootURI, fuzzy.WalkCmd(m.router, rootURI), m.width, m.height)
+		m.fuzzy = &f
+		return m, f.Init()
+	default:
+		return m.showError("Find Error", fmt.Errorf("fuzzy find is only available in local and SFTP directories"))
 	}
-	f := fuzzy.New(midfs.NewFileURI(path), m.width, m.height)
-	m.fuzzy = &f
-	return m, f.Init()
 }
 
 func (m Model) startView() (tea.Model, tea.Cmd) {
@@ -999,6 +1089,16 @@ func (m Model) handleDialogResult(result dialogs.Result) (tea.Model, tea.Cmd) {
 			m.activePanel().SetURI(uri)
 			return m, m.activePanel().LoadDir()
 		}
+	case tagRemoteEditUpload:
+		if m.pendingRemoteEdit == nil {
+			return m, nil
+		}
+		session := *m.pendingRemoteEdit
+		if result.Confirmed {
+			return m, uploadRemoteEditCmd(m.router, session)
+		}
+		cleanupRemoteWorkfile(session)
+		m.pendingRemoteEdit = nil
 	}
 	return m, nil
 }

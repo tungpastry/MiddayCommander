@@ -71,22 +71,14 @@ func waitTransferEventCmd(manager *transfer.Manager) tea.Cmd {
 }
 
 func viewFileCmd(uri midfs.URI) tea.Cmd {
-	pager := os.Getenv("PAGER")
-	if pager == "" {
-		pager = "less"
-	}
-	command := exec.Command(pager, uri.Path)
+	command := exec.Command(resolvePager(), uri.Path)
 	return tea.ExecProcess(command, func(err error) tea.Msg {
 		return externalDoneMsg{err: err}
 	})
 }
 
 func editFileCmd(uri midfs.URI) tea.Cmd {
-	editor := os.Getenv("EDITOR")
-	if editor == "" {
-		editor = "vi"
-	}
-	command := exec.Command(editor, uri.Path)
+	command := exec.Command(resolveEditor(), uri.Path)
 	return tea.ExecProcess(command, func(err error) tea.Msg {
 		return externalDoneMsg{err: err}
 	})

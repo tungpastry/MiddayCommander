@@ -31,9 +31,9 @@ Midday Commander (`mdc`) keeps the classic commander-style workflow while adding
 - **Automatic retry** for queued remote transfers
 - **Audit logging foundation** for transfer activity
 - **Configurable keybindings** via `config.toml`
-- **Fuzzy finder** for fast local recursive search
+- **Fuzzy finder** for fast local and SFTP recursive search
 - **Live theme picker** with instant preview
-- **External editor/viewer** for local files through `$EDITOR` and `$PAGER`
+- **External editor/viewer** for local files and temp-backed SFTP files through `$EDITOR` and `$PAGER`
 - **Mouse support** for menu bar and panel interaction
 - **Single binary** distribution
 
@@ -58,17 +58,16 @@ Available now:
 - use short automatic retries for transient transfer failures
 - review in-flight and recent transfer progress in the transfer overlay
 - open the audit log from the transfer overlay without leaving the TUI
-
-Remote fuzzy find, remote external edit, and remote external view are also still deferred. Those flows remain local-only in the current build.
+- fuzzy-find inside local and SFTP directories with the same overlay
+- preview remote SFTP files through a local pager
+- edit remote SFTP files through a local editor and confirm upload-back when the file changed
 
 Still deferred:
 
 - richer conflict resolution UX while a job is already running
-- pause / resume / cancel queue controls
 - platform-native secret stores
 - password-based SSH auth
-- remote fuzzy find
-- remote external view / edit
+- archive-backed external view / edit
 
 ## Installation
 
@@ -154,14 +153,14 @@ From that overlay you can also pause/resume the queue, cancel the current job, c
 | `F1` | Help |
 | `F2` | Bookmarks |
 | `Shift-F2` | Remote connect |
-| `F3` | View local file (`$PAGER`) |
-| `F4` | Edit local file (`$EDITOR`) |
+| `F3` | View local or SFTP file (`$PAGER`) |
+| `F4` | Edit local or SFTP file (`$EDITOR`) |
 | `F5` | Copy to other panel |
 | `F6` | Move to other panel |
 | `Shift-F6` | Rename |
 | `F7` | Create directory |
 | `F8` | Delete |
-| `F9` | Fuzzy finder |
+| `F9` | Fuzzy finder in local or SFTP directory |
 | `F10` | Quit |
 | `Esc Esc` | Quit (double-press) |
 | `Tab` | Switch active panel |
@@ -358,6 +357,9 @@ sftp://deploy@files.example.com:2222/srv/releases?auth=key&identity_file=~/.ssh/
 
 - browse remote directories
 - enter child directories and return to parent directories
+- fuzzy-find within the current remote tree
+- preview remote files through a local temp copy
+- edit remote files through a local temp copy with upload confirmation
 - create remote directories
 - rename remote files and directories
 - delete remote files and directories
@@ -365,11 +367,10 @@ sftp://deploy@files.example.com:2222/srv/releases?auth=key&identity_file=~/.ssh/
 
 ### Remote limitations in the current build
 
-- `F5` and `F6` involving SFTP are blocked intentionally
-- remote transfers do not use a queue yet
-- remote view/edit are not exposed yet
-- remote fuzzy find is not exposed yet
 - secrets backends are not implemented yet
+- password auth is not implemented yet
+- archive entries do not participate in the SFTP temp-view/temp-edit flow
+- remote view/edit use synchronous temp workfiles rather than the transfer queue
 
 ## Archives
 

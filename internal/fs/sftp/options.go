@@ -10,8 +10,11 @@ import (
 )
 
 const (
-	QueryAuth           = "auth"
-	QueryIdentityFile   = "identity_file"
+	// QueryAuth là khóa tham số truy vấn URI cho phương thức xác thực.
+	QueryAuth = "auth"
+	// QueryIdentityFile là khóa tham số truy vấn URI cho đường dẫn tệp định danh SSH.
+	QueryIdentityFile = "identity_file"
+	// QueryKnownHostsFile là khóa tham số truy vấn URI cho đường dẫn tệp known_hosts.
 	QueryKnownHostsFile = "known_hosts_file"
 )
 
@@ -103,6 +106,8 @@ func (o Options) URI() midfs.URI {
 	return uri
 }
 
+// cleanPath chuẩn hóa một chuỗi đường dẫn. Nó cắt bỏ khoảng trắng, thay thế dấu gạch chéo ngược
+// bằng dấu gạch chéo xuôi, và làm sạch đường dẫn bằng path.Clean. Nó đảm bảo đường dẫn là tuyệt đối.
 func cleanPath(raw string) string {
 	clean := path.Clean("/" + strings.TrimSpace(strings.ReplaceAll(raw, "\\", "/")))
 	if clean == "." {
