@@ -40,7 +40,7 @@ end           = "end"
 go_back       = "backspace"
 
 # Selection
-toggle_select = "insert"
+toggle_select = ["insert", "ctrl+space"]
 select_up     = "shift+up"
 select_down   = "shift+down"
 select_all    = "ctrl+a"

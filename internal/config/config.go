@@ -122,7 +122,7 @@ func DefaultKeyBindings() KeyBindings {
 		End:      StringOrList{"end"},
 		GoBack:   StringOrList{"backspace"},
 
-		ToggleSelect:    StringOrList{"insert"},
+		ToggleSelect:    StringOrList{"insert", "ctrl+space"},
 		SelectUp:        StringOrList{"shift+up"},
 		SelectDown:      StringOrList{"shift+down"},
 		SelectAll:       StringOrList{"ctrl+a", "*"},

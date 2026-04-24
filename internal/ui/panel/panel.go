@@ -218,11 +218,9 @@ func (m *Model) Update(msg tea.KeyMsg) tea.Cmd {
 		return m.handleSpace()
 	case key.Matches(msg, km.GoBack):
 		return m.goUp()
-	case msg.String() == "insert":
-		m.toggleSelect()
-		m.moveDown(1)
 	case key.Matches(msg, km.ToggleSelect):
 		m.toggleSelect()
+		m.moveDown(1)
 	case key.Matches(msg, km.QuickSearch):
 		m.searching = true
 		m.searchQuery = ""
