@@ -43,6 +43,8 @@ go_back       = "backspace"
 toggle_select = "insert"
 select_up     = "shift+up"
 select_down   = "shift+down"
+select_all    = "ctrl+a"
+invert_selection = "*"
 
 # Search
 quick_search  = "ctrl+s"

@@ -55,7 +55,19 @@ func (m Model) View(th theme.Theme) string {
 		if parent := m.router.Parent(m.dir); parent.String() != m.dir.String() {
 			count--
 		}
-		footerText = fmt.Sprintf(" %d files [%s] ", count, m.sortMode.String())
+
+		selectedCount := 0
+		for _, sel := range m.selected {
+			if sel {
+				selectedCount++
+			}
+		}
+
+		if selectedCount > 0 {
+			footerText = fmt.Sprintf(" %d selected / %d files [%s] ", selectedCount, count, m.sortMode.String())
+		} else {
+			footerText = fmt.Sprintf(" %d files [%s] ", count, m.sortMode.String())
+		}
 	}
 	footerLine := borderStyle.Render("└") +
 		headerStyle.Render(truncOrPad(footerText, innerWidth)) +

@@ -22,7 +22,12 @@
 | `Shift + F6` | Đổi tên tệp/thư mục tại con trỏ |
 | `F7` | Tạo thư mục mới (Mkdir) |
 | `F8` | Xóa tệp/thư mục (có hộp thoại xác nhận) |
-| `Insert / Space` | Chọn/Bỏ chọn tệp để thao tác hàng loạt |
+| `Insert` | Chọn/Bỏ chọn tệp tại con trỏ |
+| `Shift + Up/Down` | Chọn tệp và di chuyển con trỏ |
+| `Ctrl + A` hoặc `*` | Chọn tất cả các tệp trong thư mục hiện tại |
+| `!` | Đảo ngược vùng chọn (Invert selection) |
+
+Khi có tệp được chọn, thanh trạng thái (footer) sẽ hiển thị số lượng tệp đang chọn (ví dụ: `[ 3 selected ]`). Các thao tác Copy, Move, Delete sẽ áp dụng cho toàn bộ danh sách đã chọn này.
 
 ## 3. Tính năng nâng cao
 

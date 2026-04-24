@@ -21,10 +21,12 @@ type KeyMap struct {
 	Home         key.Binding
 	End          key.Binding
 	GoBack       key.Binding
-	ToggleSelect key.Binding
-	SelectUp     key.Binding
-	SelectDown   key.Binding
-	QuickSearch  key.Binding
+	ToggleSelect    key.Binding
+	SelectUp        key.Binding
+	SelectDown      key.Binding
+	SelectAll       key.Binding
+	InvertSelection key.Binding
+	QuickSearch     key.Binding
 	Sort         key.Binding
 }
 
@@ -196,6 +198,10 @@ func (m *Model) Update(msg tea.KeyMsg) tea.Cmd {
 	case key.Matches(msg, km.SelectDown):
 		m.selectAt(m.cursor)
 		m.moveDown(1)
+	case key.Matches(msg, km.SelectAll):
+		m.selectAll()
+	case key.Matches(msg, km.InvertSelection):
+		m.invertSelection()
 	case key.Matches(msg, km.PageUp):
 		m.moveUp(m.height)
 	case key.Matches(msg, km.PageDown):
@@ -391,6 +397,22 @@ func (m *Model) toggleSelect() {
 func (m *Model) selectAt(index int) {
 	if index >= 0 && index < len(m.entries) && m.entries[index].Name != ".." {
 		m.selected[index] = true
+	}
+}
+
+func (m *Model) selectAll() {
+	for i := 0; i < len(m.entries); i++ {
+		if m.entries[i].Name != ".." {
+			m.selected[i] = true
+		}
+	}
+}
+
+func (m *Model) invertSelection() {
+	for i := 0; i < len(m.entries); i++ {
+		if m.entries[i].Name != ".." {
+			m.selected[i] = !m.selected[i]
+		}
 	}
 }
 

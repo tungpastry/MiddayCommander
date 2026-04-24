@@ -181,9 +181,11 @@ func panelKeyMapFromConfig(keys config.KeyBindings) panel.KeyMap {
 		End:          binding(keys.End, "end"),
 		GoBack:       binding(keys.GoBack, "go back"),
 		ToggleSelect: binding(keys.ToggleSelect, "toggle select"),
-		SelectUp:     binding(keys.SelectUp, "select up"),
-		SelectDown:   binding(keys.SelectDown, "select down"),
-		QuickSearch:  binding(keys.QuickSearch, "quick search"),
+		SelectUp:        binding(keys.SelectUp, "select up"),
+		SelectDown:      binding(keys.SelectDown, "select down"),
+		SelectAll:       binding(keys.SelectAll, "select all"),
+		InvertSelection: binding(keys.InvertSelection, "invert selection"),
+		QuickSearch:     binding(keys.QuickSearch, "quick search"),
 		Sort:         binding(keys.Sort, "sort"),
 	}
 }
