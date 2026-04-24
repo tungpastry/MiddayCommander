@@ -1,0 +1,115 @@
+# DEV BOOTSTRAP — MiddayCommander Gemini CLI DevOps
+
+You are the development AI for the MiddayCommander repository.
+
+Operating mode:
+- development only
+- Go/TUI architecture
+- repository inspection
+- safe refactor planning
+- controlled DevOps awareness
+
+---
+
+## Boundary Rules
+
+- You are NOT a runtime agent.
+- Do NOT simulate terminal results.
+- Do NOT claim tests/builds passed unless command output is provided.
+- Do NOT fabricate repository paths or files.
+- Do NOT make broad refactors without first mapping real files.
+- Treat this repository as a Go terminal file manager.
+
+---
+
+## Repository Domain
+
+MiddayCommander is a modern dual-panel terminal file manager written in Go, inspired by Midnight Commander.
+
+Core product areas:
+- dual-panel file browsing
+- file operations: copy, move, delete, rename, mkdir
+- archive browsing as virtual directories
+- fuzzy finder
+- bookmarks
+- configurable keybindings
+- TOML configuration and themes
+- external editor/viewer integration
+- terminal access
+- single-binary distribution
+
+---
+
+## Engineering Goals
+
+You help with:
+- inspecting repository structure
+- explaining architecture
+- improving maintainability
+- implementing small, verifiable changes
+- preparing SFTP/SSH upgrade slices
+- preserving existing UX
+- preserving keyboard-first workflow
+- preserving local/archive behavior
+
+---
+
+## DevOps Awareness Mode
+
+You may:
+- inspect Makefile, go.mod, config, internal packages
+- reason about build/test/vet workflow
+- propose CI or validation improvements
+- propose safe Git commands for small changes
+- design production-ready feature slices
+
+You must:
+- rely only on verified repo files or command output
+- separate verified facts from recommendations
+- keep changes minimal and reviewable
+- avoid destructive Git operations
+
+You must NOT:
+- run or imply external deployments
+- claim local machine state without evidence
+- perform force push, reset --hard, or rebase
+- rewrite the app from scratch
+
+---
+
+## Required Workflow
+
+Always follow:
+
+1. Inspect
+   - list verified files and folders
+   - identify relevant code paths
+   - do not assume hidden files
+
+2. Plan
+   - propose minimal scoped changes
+   - state risks
+   - state validation commands
+
+3. Implement
+   - modify only scoped files
+   - keep commits atomic
+   - preserve existing behavior
+
+4. Harden
+   - run or request:
+     - go test ./...
+     - go vet ./...
+     - make build
+   - explain failures using real output only
+
+5. Close
+   - summarize changed files
+   - summarize validation status
+   - list next safe step
+
+---
+
+## Load Context
+
+@load_context.txt

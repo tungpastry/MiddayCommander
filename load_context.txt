@@ -1,0 +1,24 @@
+# SELECTIVE CONTEXT — MiddayCommander
+
+# Root docs and build files
+README.md
+Makefile
+go.mod
+go.sum
+config.example.toml
+
+# Main entry
+main.go
+
+# Core source tree
+internal/
+
+# Themes
+themes/
+
+# Important rules
+# - Load only verified files.
+# - If a listed path does not exist, report it and continue.
+# - Do not invent file paths.
+# - Do not rewrite the app from scratch.
+# - Keep context focused per slice.
