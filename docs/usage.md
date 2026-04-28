@@ -22,12 +22,12 @@
 | `Shift + F6` | Đổi tên tệp/thư mục tại con trỏ |
 | `F7` | Tạo thư mục mới (Mkdir) |
 | `F8` | Xóa tệp/thư mục (có hộp thoại xác nhận) |
-| `Insert` hoặc `Ctrl + Space` | Chọn/Bỏ chọn tệp tại con trỏ (Mac khuyên dùng Ctrl+Space) |
-| `Shift + Up/Down` | Chọn tệp và di chuyển con trỏ |
+| `Insert` hoặc `Ctrl + Space` | Chọn/Bỏ chọn đúng tệp tại con trỏ, không tự nhảy sang dòng khác |
+| `Shift + Up/Down` | Mở rộng vùng chọn liên tiếp theo kiểu bôi đen khi di chuyển con trỏ |
 | `Ctrl + A` hoặc `*` | Chọn tất cả các tệp trong thư mục hiện tại |
 | `!` | Đảo ngược vùng chọn (Invert selection) |
 
-Khi có tệp được chọn, thanh trạng thái (footer) sẽ hiển thị số lượng tệp đang chọn (ví dụ: `[ 3 selected ]`). Các thao tác Copy, Move, Delete sẽ áp dụng cho toàn bộ danh sách đã chọn này.
+Khi có tệp được chọn, thanh trạng thái (footer) sẽ hiển thị số lượng tệp đang chọn (ví dụ: `3 selected / 20 files`). Các thao tác Copy, Move, Delete sẽ áp dụng cho toàn bộ danh sách đã chọn này.
 
 ## 3. Tính năng nâng cao
 

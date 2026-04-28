@@ -14,34 +14,35 @@ import (
 )
 
 type KeyMap struct {
-	Up           key.Binding
-	Down         key.Binding
-	PageUp       key.Binding
-	PageDown     key.Binding
-	Home         key.Binding
-	End          key.Binding
-	GoBack       key.Binding
+	Up              key.Binding
+	Down            key.Binding
+	PageUp          key.Binding
+	PageDown        key.Binding
+	Home            key.Binding
+	End             key.Binding
+	GoBack          key.Binding
 	ToggleSelect    key.Binding
 	SelectUp        key.Binding
 	SelectDown      key.Binding
 	SelectAll       key.Binding
 	InvertSelection key.Binding
 	QuickSearch     key.Binding
-	Sort         key.Binding
+	Sort            key.Binding
 }
 
 type Model struct {
-	router   *midfs.Router
-	dir      midfs.URI
-	entries  []midfs.Entry
-	cursor   int
-	offset   int
-	selected map[int]bool
-	sortMode SortMode
-	width    int
-	height   int
-	active   bool
-	err      error
+	router       *midfs.Router
+	dir          midfs.URI
+	entries      []midfs.Entry
+	cursor       int
+	offset       int
+	selected     map[int]bool
+	selectAnchor int
+	sortMode     SortMode
+	width        int
+	height       int
+	active       bool
+	err          error
 
 	searching   bool
 	searchQuery string
@@ -51,11 +52,12 @@ type Model struct {
 
 func New(router *midfs.Router, dir midfs.URI, km KeyMap) Model {
 	return Model{
-		router:   router,
-		dir:      router.Clean(dir),
-		selected: make(map[int]bool),
-		sortMode: SortByName,
-		keyMap:   km,
+		router:       router,
+		dir:          router.Clean(dir),
+		selected:     make(map[int]bool),
+		selectAnchor: -1,
+		sortMode:     SortByName,
+		keyMap:       km,
 	}
 }
 
@@ -78,6 +80,7 @@ func (m *Model) SetURI(uri midfs.URI) {
 	m.dir = m.router.Clean(uri)
 	m.cursor = 0
 	m.offset = 0
+	m.selectAnchor = -1
 }
 
 func (m *Model) SetSize(width, height int) {
@@ -171,6 +174,7 @@ func (m *Model) HandleDirLoaded(msg DirLoadedMsg) {
 	SortEntries(all, m.sortMode)
 	m.entries = all
 	m.selected = make(map[int]bool)
+	m.selectAnchor = -1
 	if m.cursor >= len(m.entries) {
 		m.cursor = max(0, len(m.entries)-1)
 	}
@@ -189,27 +193,33 @@ func (m *Model) Update(msg tea.KeyMsg) tea.Cmd {
 	km := m.keyMap
 	switch {
 	case key.Matches(msg, km.Up):
+		m.selectAnchor = -1
 		m.moveUp(1)
 	case key.Matches(msg, km.Down):
+		m.selectAnchor = -1
 		m.moveDown(1)
 	case key.Matches(msg, km.SelectUp):
-		m.selectAt(m.cursor)
-		m.moveUp(1)
+		m.extendSelection(-1)
 	case key.Matches(msg, km.SelectDown):
-		m.selectAt(m.cursor)
-		m.moveDown(1)
+		m.extendSelection(1)
 	case key.Matches(msg, km.SelectAll):
+		m.selectAnchor = -1
 		m.selectAll()
 	case key.Matches(msg, km.InvertSelection):
+		m.selectAnchor = -1
 		m.invertSelection()
 	case key.Matches(msg, km.PageUp):
+		m.selectAnchor = -1
 		m.moveUp(m.height)
 	case key.Matches(msg, km.PageDown):
+		m.selectAnchor = -1
 		m.moveDown(m.height)
 	case key.Matches(msg, km.Home):
+		m.selectAnchor = -1
 		m.cursor = 0
 		m.offset = 0
 	case key.Matches(msg, km.End):
+		m.selectAnchor = -1
 		m.cursor = max(0, len(m.entries)-1)
 		m.clampOffset()
 	case msg.String() == "enter":
@@ -217,14 +227,16 @@ func (m *Model) Update(msg tea.KeyMsg) tea.Cmd {
 	case msg.String() == " ":
 		return m.handleSpace()
 	case key.Matches(msg, km.GoBack):
+		m.selectAnchor = -1
 		return m.goUp()
 	case key.Matches(msg, km.ToggleSelect):
 		m.toggleSelect()
-		m.moveDown(1)
 	case key.Matches(msg, km.QuickSearch):
+		m.selectAnchor = -1
 		m.searching = true
 		m.searchQuery = ""
 	case key.Matches(msg, km.Sort):
+		m.selectAnchor = -1
 		m.ChangeSortMode()
 		return nil
 	default:
@@ -380,6 +392,7 @@ func (m *Model) RestoreCursor(name string) {
 	for index, entry := range m.entries {
 		if entry.Name == name {
 			m.cursor = index
+			m.selectAnchor = -1
 			m.clampOffset()
 			return
 		}
@@ -387,14 +400,60 @@ func (m *Model) RestoreCursor(name string) {
 }
 
 func (m *Model) toggleSelect() {
-	if m.cursor >= 0 && m.cursor < len(m.entries) && m.entries[m.cursor].Name != ".." {
+	if m.isSelectable(m.cursor) {
 		m.selected[m.cursor] = !m.selected[m.cursor]
+		if m.selected[m.cursor] {
+			m.selectAnchor = m.cursor
+		} else if len(m.SelectedURIs()) == 0 {
+			m.selectAnchor = -1
+		}
 	}
 }
 
 func (m *Model) selectAt(index int) {
-	if index >= 0 && index < len(m.entries) && m.entries[index].Name != ".." {
+	if m.isSelectable(index) {
 		m.selected[index] = true
+	}
+}
+
+func (m *Model) isSelectable(index int) bool {
+	return index >= 0 && index < len(m.entries) && m.entries[index].Name != ".."
+}
+
+func (m *Model) extendSelection(lines int) {
+	if len(m.entries) == 0 || lines == 0 {
+		return
+	}
+
+	next := m.cursor + lines
+	if next < 0 {
+		next = 0
+	}
+	if next >= len(m.entries) {
+		next = len(m.entries) - 1
+	}
+
+	if m.selectAnchor < 0 || !m.isSelectable(m.selectAnchor) {
+		if m.isSelectable(m.cursor) {
+			m.selectAnchor = m.cursor
+		} else if m.isSelectable(next) {
+			m.selectAnchor = next
+		} else {
+			return
+		}
+	}
+
+	m.cursor = next
+	m.clampOffset()
+	m.selectRange(m.selectAnchor, m.cursor)
+}
+
+func (m *Model) selectRange(start, end int) {
+	if start > end {
+		start, end = end, start
+	}
+	for i := start; i <= end; i++ {
+		m.selectAt(i)
 	}
 }
 
