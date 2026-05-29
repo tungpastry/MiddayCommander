@@ -9,6 +9,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 
 	"github.com/kooler/MiddayCommander/internal/app"
+	"github.com/kooler/MiddayCommander/internal/config"
 	"github.com/kooler/MiddayCommander/internal/platform"
 )
 
@@ -24,6 +25,17 @@ func main() {
 		os.Exit(0)
 	}
 
+	var keyDebug *app.KeyDebugLogger
+	if hasArg("--debug-keys") {
+		logger, err := app.NewKeyDebugLogger(config.KeyDebugLogPath())
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+			os.Exit(1)
+		}
+		keyDebug = logger
+		defer keyDebug.Close()
+	}
+
 	// Enable Kitty keyboard protocol (flag 1: disambiguate) so the terminal
 	// reports modifier-only key presses (e.g. bare Shift). Terminals that
 	// don't support the protocol silently ignore this sequence.
@@ -31,10 +43,10 @@ func main() {
 	defer os.Stdout.WriteString("\x1b[<u") // disable on exit
 
 	p := tea.NewProgram(
-		app.New(),
+		app.NewWithOptions(app.Options{KeyDebug: keyDebug}),
 		tea.WithAltScreen(),
 		tea.WithMouseAllMotion(),
-		tea.WithFilter(app.KittyFilter),
+		tea.WithFilter(app.KittyFilterWithDebug(keyDebug)),
 	)
 
 	// Poll OS-level shift key state and send messages to the Bubble Tea program.
@@ -50,6 +62,15 @@ func main() {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 		os.Exit(1)
 	}
+}
+
+func hasArg(flag string) bool {
+	for _, arg := range os.Args[1:] {
+		if arg == flag {
+			return true
+		}
+	}
+	return false
 }
 
 // pollShift checks the OS modifier state periodically and sends

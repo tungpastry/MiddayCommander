@@ -15,6 +15,16 @@ import (
 // Terminals that do not support the Kitty protocol never emit these sequences,
 // so the filter is a no-op in that case.
 func KittyFilter(_ tea.Model, msg tea.Msg) tea.Msg {
+	return kittyFilter(nil, msg)
+}
+
+func KittyFilterWithDebug(logger *KeyDebugLogger) func(tea.Model, tea.Msg) tea.Msg {
+	return func(_ tea.Model, msg tea.Msg) tea.Msg {
+		return kittyFilter(logger, msg)
+	}
+}
+
+func kittyFilter(logger *KeyDebugLogger, msg tea.Msg) tea.Msg {
 	// unknownCSISequenceMsg is unexported []byte – detect via reflection.
 	rv := reflect.ValueOf(msg)
 	if rv.Kind() != reflect.Slice || rv.Type().Elem().Kind() != reflect.Uint8 {
@@ -30,8 +40,10 @@ func KittyFilter(_ tea.Model, msg tea.Msg) tea.Msg {
 	}
 	params := string(raw[2 : len(raw)-1]) // strip ESC [ and u
 	if converted := convertCSIU(params); converted != nil {
+		logger.LogKittyFilter(raw, params, converted)
 		return converted
 	}
+	logger.LogKittyFilter(raw, params, nil)
 	return msg
 }
 

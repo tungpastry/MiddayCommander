@@ -54,6 +54,11 @@ func AuditLogPath() string {
 	return filepath.Join(ConfigDir(), "audit.log")
 }
 
+// KeyDebugLogPath returns the diagnostic key input log path.
+func KeyDebugLogPath() string {
+	return filepath.Join(ConfigDir(), "key-debug.log")
+}
+
 // SecretsPath returns the encrypted fallback secrets store path.
 func SecretsPath() string {
 	return filepath.Join(ConfigDir(), "secrets.json")

@@ -53,6 +53,8 @@ const (
 	tagRemoteEditUpload = "remote-edit-upload"
 )
 
+const shiftFKeyGraceWindow = 250 * time.Millisecond
+
 // Model is the root application model.
 type Model struct {
 	router     *midfs.Router
@@ -101,10 +103,20 @@ type Model struct {
 	// Shift F-key menu bar
 	shiftMenuItems []menubar.Item
 	shiftHeld      bool
+	lastShiftSeen  time.Time
+	keyDebug       *KeyDebugLogger
+}
+
+type Options struct {
+	KeyDebug *KeyDebugLogger
 }
 
 // New creates a new application model.
 func New() Model {
+	return NewWithOptions(Options{})
+}
+
+func NewWithOptions(opts Options) Model {
 	cfg := config.Load()
 
 	home, err := os.UserHomeDir()
@@ -156,6 +168,7 @@ func New() Model {
 		profileStore:   profileStore,
 		profilesErr:    profileErr,
 		transferMgr:    transfer.NewManager(router, auditLogger),
+		keyDebug:       opts.KeyDebug,
 	}
 }
 
@@ -173,20 +186,20 @@ func (m Model) Close() error {
 
 func panelKeyMapFromConfig(keys config.KeyBindings) panel.KeyMap {
 	return panel.KeyMap{
-		Up:           binding(keys.Up, "up"),
-		Down:         binding(keys.Down, "down"),
-		PageUp:       binding(keys.PageUp, "page up"),
-		PageDown:     binding(keys.PageDown, "page down"),
-		Home:         binding(keys.Home, "home"),
-		End:          binding(keys.End, "end"),
-		GoBack:       binding(keys.GoBack, "go back"),
-		ToggleSelect: binding(keys.ToggleSelect, "toggle select"),
+		Up:              binding(keys.Up, "up"),
+		Down:            binding(keys.Down, "down"),
+		PageUp:          binding(keys.PageUp, "page up"),
+		PageDown:        binding(keys.PageDown, "page down"),
+		Home:            binding(keys.Home, "home"),
+		End:             binding(keys.End, "end"),
+		GoBack:          binding(keys.GoBack, "go back"),
+		ToggleSelect:    binding(keys.ToggleSelect, "toggle select"),
 		SelectUp:        binding(keys.SelectUp, "select up"),
 		SelectDown:      binding(keys.SelectDown, "select down"),
 		SelectAll:       binding(keys.SelectAll, "select all"),
 		InvertSelection: binding(keys.InvertSelection, "invert selection"),
 		QuickSearch:     binding(keys.QuickSearch, "quick search"),
-		Sort:         binding(keys.Sort, "sort"),
+		Sort:            binding(keys.Sort, "sort"),
 	}
 }
 
@@ -499,15 +512,22 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case ShiftPressMsg:
 		m.shiftHeld = true
+		m.lastShiftSeen = time.Now()
+		m.keyDebug.LogShift("ShiftPressMsg", m.shiftHeld, m.lastShiftSeen)
 		return m, nil
 
 	case ShiftReleaseMsg:
 		m.shiftHeld = false
+		m.keyDebug.LogShift("ShiftReleaseMsg", m.shiftHeld, m.lastShiftSeen)
 		return m, nil
 
 	case tea.MouseMsg:
 		// Track shift modifier from mouse events (primary shift detection).
 		m.shiftHeld = msg.Shift
+		if msg.Shift {
+			m.lastShiftSeen = time.Now()
+		}
+		m.keyDebug.LogMouse(msg, m.shiftHeld, m.lastShiftSeen)
 
 		if msg.Action == tea.MouseActionPress && msg.Button == tea.MouseButtonLeft {
 			// Click on menu bar (last row)
@@ -527,16 +547,28 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.KeyMsg:
 		// Track shift state for menu bar display.
 		// Detect shift from F13-F20 (shift+F1..F8) or any "shift+…" key name.
-		m.shiftHeld = hasShiftModifier(msg)
+		now := time.Now()
+		beforeDebug := keyDebugState{shiftHeld: m.shiftHeld, lastShiftSeen: m.lastShiftSeen}
+		hasShift := hasShiftModifier(msg)
+		if hasShift {
+			m.shiftHeld = true
+			m.lastShiftSeen = now
+		}
+		shiftRecent := m.shiftSeenRecently(now)
+		effectiveMsg := effectiveKeyMsg(msg, m.shiftHeld || shiftRecent)
+		matchedAction := m.globalActionForKey(effectiveMsg)
+		afterDebug := keyDebugState{shiftHeld: m.shiftHeld, lastShiftSeen: m.lastShiftSeen, shiftRecent: shiftRecent}
 
 		// Help overlay gets priority
 		if m.auditLog != nil {
+			m.keyDebug.LogKey(msg, effectiveMsg, beforeDebug, afterDebug, matchedAction, false)
 			newAudit, cmd := m.auditLog.Update(msg)
 			m.auditLog = &newAudit
 			return m, cmd
 		}
 
 		if m.help != nil {
+			m.keyDebug.LogKey(msg, effectiveMsg, beforeDebug, afterDebug, matchedAction, false)
 			newHelp, cmd := m.help.Update(msg)
 			m.help = &newHelp
 			return m, cmd
@@ -544,24 +576,28 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		// Bookmarks overlay gets priority
 		if m.bookmarks != nil {
+			m.keyDebug.LogKey(msg, effectiveMsg, beforeDebug, afterDebug, matchedAction, false)
 			newBM, cmd := m.bookmarks.Update(msg)
 			m.bookmarks = &newBM
 			return m, cmd
 		}
 
 		if m.profiles != nil {
+			m.keyDebug.LogKey(msg, effectiveMsg, beforeDebug, afterDebug, matchedAction, false)
 			newProfiles, cmd := m.profiles.Update(msg)
 			m.profiles = &newProfiles
 			return m, cmd
 		}
 
 		if m.connect != nil {
+			m.keyDebug.LogKey(msg, effectiveMsg, beforeDebug, afterDebug, matchedAction, false)
 			newConnect, cmd := m.connect.Update(msg)
 			m.connect = &newConnect
 			return m, cmd
 		}
 
 		if m.transferOptions != nil {
+			m.keyDebug.LogKey(msg, effectiveMsg, beforeDebug, afterDebug, matchedAction, false)
 			newTransferOptions, cmd := m.transferOptions.Update(msg)
 			m.transferOptions = &newTransferOptions
 			return m, cmd
@@ -569,6 +605,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		// Theme picker gets priority when active
 		if m.themePicker != nil {
+			m.keyDebug.LogKey(msg, effectiveMsg, beforeDebug, afterDebug, matchedAction, false)
 			newTP, cmd := m.themePicker.Update(msg)
 			m.themePicker = &newTP
 			return m, cmd
@@ -576,6 +613,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		// Fuzzy finder gets priority when active
 		if m.fuzzy != nil {
+			m.keyDebug.LogKey(msg, effectiveMsg, beforeDebug, afterDebug, matchedAction, false)
 			newFuzzy, cmd := m.fuzzy.Update(msg)
 			m.fuzzy = &newFuzzy
 			return m, cmd
@@ -583,6 +621,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		// Command execution gets priority when active
 		if m.cmdExec != nil {
+			m.keyDebug.LogKey(msg, effectiveMsg, beforeDebug, afterDebug, matchedAction, false)
 			newCE, cmd := m.cmdExec.Update(msg)
 			m.cmdExec = &newCE
 			return m, cmd
@@ -590,6 +629,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		// Image preview gets priority
 		if m.imagePreview != nil {
+			m.keyDebug.LogKey(msg, effectiveMsg, beforeDebug, afterDebug, matchedAction, false)
 			newIP, cmd := m.imagePreview.Update(msg)
 			m.imagePreview = newIP
 			if m.imagePreview.Done() {
@@ -600,6 +640,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		// Dialog gets priority
 		if m.dialog != nil {
+			m.keyDebug.LogKey(msg, effectiveMsg, beforeDebug, afterDebug, matchedAction, false)
 			m.dialog.Update(msg)
 			if m.dialog.Done() {
 				result := m.dialog.GetResult()
@@ -610,6 +651,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 		if m.transfers != nil {
+			m.keyDebug.LogKey(msg, effectiveMsg, beforeDebug, afterDebug, matchedAction, false)
 			newTransfers, cmd := m.transfers.Update(msg)
 			if cmd != nil {
 				m.transfers = &newTransfers
@@ -619,6 +661,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		// Double-Esc to quit
 		if msg.String() == "esc" {
+			m.keyDebug.LogKey(msg, effectiveMsg, beforeDebug, afterDebug, "double-esc", true)
 			now := time.Now()
 			if now.Sub(m.lastEsc) < 400*time.Millisecond {
 				return m, tea.Quit
@@ -627,60 +670,62 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 
+		m.keyDebug.LogKey(msg, effectiveMsg, beforeDebug, afterDebug, matchedAction, matchedAction != "")
+
 		// Global keybindings
-		switch {
-		case key.Matches(msg, m.keyMap.Quit):
+		switch matchedAction {
+		case "quit":
 			return m, tea.Quit
 
-		case key.Matches(msg, m.keyMap.TogglePanel):
+		case "toggle_panel":
 			m.toggleFocus()
 			return m, nil
 
-		case key.Matches(msg, m.keyMap.SwapPanels):
+		case "swap_panels":
 			m.leftPanel, m.rightPanel = m.rightPanel, m.leftPanel
 			m.recalcLayout()
 			return m, nil
 
-		case key.Matches(msg, m.keyMap.Copy):
+		case "copy":
 			return m.startCopy()
 
-		case key.Matches(msg, m.keyMap.Move):
+		case "move":
 			return m.startMove()
 
-		case key.Matches(msg, m.keyMap.Delete):
+		case "delete":
 			return m.startDelete()
 
-		case key.Matches(msg, m.keyMap.Mkdir):
+		case "mkdir":
 			return m.startMkdir()
 
-		case key.Matches(msg, m.keyMap.Rename):
+		case "rename":
 			return m.startRename()
 
-		case key.Matches(msg, m.keyMap.View):
+		case "view":
 			return m.startView()
 
-		case key.Matches(msg, m.keyMap.Edit):
+		case "edit":
 			return m.startEdit()
 
-		case key.Matches(msg, m.keyMap.GoTo):
+		case "goto":
 			return m.startGoTo()
 
-		case key.Matches(msg, m.keyMap.RemoteConnect):
+		case "remote_connect":
 			return m.startProfiles()
 
-		case key.Matches(msg, m.keyMap.FuzzyFind):
+		case "fuzzy_find":
 			return m.startFuzzyFind()
 
-		case key.Matches(msg, m.keyMap.Bookmarks):
+		case "bookmarks":
 			return m.startBookmarks()
 
-		case key.Matches(msg, m.keyMap.Help):
+		case "help":
 			return m.startHelp()
 
-		case key.Matches(msg, m.keyMap.ThemePicker):
+		case "theme_picker":
 			return m.startThemePicker()
 
-		case key.Matches(msg, m.keyMap.CmdExec):
+		case "cmd_exec":
 			return m.startCmdExec()
 		}
 
@@ -800,6 +845,47 @@ func (m Model) dispatchKey(raw string) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
+func (m Model) globalActionForKey(msg tea.KeyMsg) string {
+	switch {
+	case key.Matches(msg, m.keyMap.Quit):
+		return "quit"
+	case key.Matches(msg, m.keyMap.TogglePanel):
+		return "toggle_panel"
+	case key.Matches(msg, m.keyMap.SwapPanels):
+		return "swap_panels"
+	case key.Matches(msg, m.keyMap.Copy):
+		return "copy"
+	case key.Matches(msg, m.keyMap.Move):
+		return "move"
+	case key.Matches(msg, m.keyMap.Delete):
+		return "delete"
+	case key.Matches(msg, m.keyMap.Mkdir):
+		return "mkdir"
+	case key.Matches(msg, m.keyMap.Rename):
+		return "rename"
+	case key.Matches(msg, m.keyMap.View):
+		return "view"
+	case key.Matches(msg, m.keyMap.Edit):
+		return "edit"
+	case key.Matches(msg, m.keyMap.GoTo):
+		return "goto"
+	case key.Matches(msg, m.keyMap.RemoteConnect):
+		return "remote_connect"
+	case key.Matches(msg, m.keyMap.FuzzyFind):
+		return "fuzzy_find"
+	case key.Matches(msg, m.keyMap.Bookmarks):
+		return "bookmarks"
+	case key.Matches(msg, m.keyMap.Help):
+		return "help"
+	case key.Matches(msg, m.keyMap.ThemePicker):
+		return "theme_picker"
+	case key.Matches(msg, m.keyMap.CmdExec):
+		return "cmd_exec"
+	default:
+		return ""
+	}
+}
+
 func isShiftFKey(msg tea.KeyMsg) bool {
 	// KeyType uses negative iota: KeyF13 (-46) > KeyF20 (-53).
 	return msg.Type <= tea.KeyF13 && msg.Type >= tea.KeyF20
@@ -807,6 +893,47 @@ func isShiftFKey(msg tea.KeyMsg) bool {
 
 func hasShiftModifier(msg tea.KeyMsg) bool {
 	return isShiftFKey(msg) || strings.Contains(msg.String(), "shift+")
+}
+
+func (m Model) shiftSeenRecently(now time.Time) bool {
+	return !m.lastShiftSeen.IsZero() && now.Sub(m.lastShiftSeen) <= shiftFKeyGraceWindow
+}
+
+func effectiveKeyMsg(msg tea.KeyMsg, shiftHeld bool) tea.KeyMsg {
+	if !shiftHeld || hasShiftModifier(msg) {
+		return msg
+	}
+
+	keyMsg := tea.Key(msg)
+	if shifted, ok := shiftedFunctionKey(keyMsg.Type); ok {
+		keyMsg.Type = shifted
+		keyMsg.Runes = nil
+		return tea.KeyMsg(keyMsg)
+	}
+	return msg
+}
+
+func shiftedFunctionKey(keyType tea.KeyType) (tea.KeyType, bool) {
+	switch keyType {
+	case tea.KeyF1:
+		return tea.KeyF13, true
+	case tea.KeyF2:
+		return tea.KeyF14, true
+	case tea.KeyF3:
+		return tea.KeyF15, true
+	case tea.KeyF4:
+		return tea.KeyF16, true
+	case tea.KeyF5:
+		return tea.KeyF17, true
+	case tea.KeyF6:
+		return tea.KeyF18, true
+	case tea.KeyF7:
+		return tea.KeyF19, true
+	case tea.KeyF8:
+		return tea.KeyF20, true
+	default:
+		return 0, false
+	}
 }
 
 func contains(keys config.StringOrList, val string) bool {

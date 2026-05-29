@@ -17,6 +17,7 @@ import (
 	"testing"
 	"time"
 
+	tea "github.com/charmbracelet/bubbletea"
 	"github.com/kooler/MiddayCommander/internal/audit"
 	"github.com/kooler/MiddayCommander/internal/config"
 	midfs "github.com/kooler/MiddayCommander/internal/fs"
@@ -125,6 +126,88 @@ func TestModelCloseClosesRouter(t *testing.T) {
 	if !filesystem.closed {
 		t.Fatal("Close() did not close the router filesystem")
 	}
+}
+
+func TestShiftHeldF6OpensRenameDialog(t *testing.T) {
+	model := newKeyDispatchTestModel(t)
+
+	shiftModel, cmd := model.Update(ShiftPressMsg{})
+	if cmd != nil {
+		t.Fatalf("Update(ShiftPressMsg) cmd = %v, want nil", cmd)
+	}
+
+	msgModel, cmd := shiftModel.Update(tea.KeyMsg{Type: tea.KeyF6})
+	if cmd != nil {
+		t.Fatalf("Update(shift-held f6) cmd = %v, want nil dialog update", cmd)
+	}
+
+	assertDialogSubmitMsgType(t, msgModel, renameDoneMsg{})
+}
+
+func TestRecentlyReleasedShiftF6OpensRenameDialog(t *testing.T) {
+	model := newKeyDispatchTestModel(t)
+
+	shiftModel, cmd := model.Update(ShiftPressMsg{})
+	if cmd != nil {
+		t.Fatalf("Update(ShiftPressMsg) cmd = %v, want nil", cmd)
+	}
+
+	releaseModel, cmd := shiftModel.Update(ShiftReleaseMsg{})
+	if cmd != nil {
+		t.Fatalf("Update(ShiftReleaseMsg) cmd = %v, want nil", cmd)
+	}
+
+	msgModel, cmd := releaseModel.Update(tea.KeyMsg{Type: tea.KeyF6})
+	if cmd != nil {
+		t.Fatalf("Update(recently released shift f6) cmd = %v, want nil dialog update", cmd)
+	}
+
+	assertDialogSubmitMsgType(t, msgModel, renameDoneMsg{})
+}
+
+func TestExpiredShiftGraceF6OpensMoveDialog(t *testing.T) {
+	model := newKeyDispatchTestModel(t)
+
+	shiftModel, cmd := model.Update(ShiftPressMsg{})
+	if cmd != nil {
+		t.Fatalf("Update(ShiftPressMsg) cmd = %v, want nil", cmd)
+	}
+	releaseModel, cmd := shiftModel.Update(ShiftReleaseMsg{})
+	if cmd != nil {
+		t.Fatalf("Update(ShiftReleaseMsg) cmd = %v, want nil", cmd)
+	}
+
+	released := releaseModel.(Model)
+	released.lastShiftSeen = time.Now().Add(-(shiftFKeyGraceWindow + time.Millisecond))
+
+	msgModel, cmd := released.Update(tea.KeyMsg{Type: tea.KeyF6})
+	if cmd != nil {
+		t.Fatalf("Update(expired shift f6) cmd = %v, want nil dialog update", cmd)
+	}
+
+	assertDialogSubmitMsgType(t, msgModel, moveDoneMsg{})
+}
+
+func TestPlainF6StillOpensMoveDialog(t *testing.T) {
+	model := newKeyDispatchTestModel(t)
+
+	msgModel, cmd := model.Update(tea.KeyMsg{Type: tea.KeyF6})
+	if cmd != nil {
+		t.Fatalf("Update(f6) cmd = %v, want nil dialog update", cmd)
+	}
+
+	assertDialogSubmitMsgType(t, msgModel, moveDoneMsg{})
+}
+
+func TestNativeShiftF6OpensRenameDialog(t *testing.T) {
+	model := newKeyDispatchTestModel(t)
+
+	msgModel, cmd := model.Update(tea.KeyMsg{Type: tea.KeyF18})
+	if cmd != nil {
+		t.Fatalf("Update(f18) cmd = %v, want nil dialog update", cmd)
+	}
+
+	assertDialogSubmitMsgType(t, msgModel, renameDoneMsg{})
 }
 
 func TestProfileSelectMsgLoadsActivePanel(t *testing.T) {
@@ -407,6 +490,82 @@ func TestHandleDialogResultRemoteCopyOpensTransferOptionsAndStartsTransfer(t *te
 	}
 	if string(data) != "transfer me" {
 		t.Fatalf("remote data = %q, want %q", string(data), "transfer me")
+	}
+}
+
+func newKeyDispatchTestModel(t *testing.T) Model {
+	t.Helper()
+
+	sourceRoot := t.TempDir()
+	destRoot := t.TempDir()
+	sourcePath := filepath.Join(sourceRoot, "notes.txt")
+	if err := os.WriteFile(sourcePath, []byte("hello"), 0o644); err != nil {
+		t.Fatalf("WriteFile(source) error = %v", err)
+	}
+
+	router := midfs.NewRouter(localfs.New(), archivefs.New(), sftpfs.New())
+	t.Cleanup(func() {
+		if err := router.Close(); err != nil {
+			t.Fatalf("router.Close() error = %v", err)
+		}
+	})
+
+	cfg := config.Default()
+	panelKM := panelKeyMapFromConfig(cfg.Keys)
+	left := panel.New(router, midfs.NewFileURI(sourceRoot), panelKM)
+	left.SetActive(true)
+	loadCmd := left.LoadDir()
+	loadResult := loadCmd()
+	loadMsg, ok := loadResult.(panel.DirLoadedMsg)
+	if !ok {
+		t.Fatalf("LoadDir() message type = %T, want panel.DirLoadedMsg", loadResult)
+	}
+	if loadMsg.Err != nil {
+		t.Fatalf("LoadDir() error = %v", loadMsg.Err)
+	}
+	left.HandleDirLoaded(loadMsg)
+	left.RestoreCursor("notes.txt")
+
+	right := panel.New(router, midfs.NewFileURI(destRoot), panelKM)
+
+	return Model{
+		router:     router,
+		leftPanel:  left,
+		rightPanel: right,
+		focus:      FocusLeft,
+		keyMap:     KeyMapFromConfig(cfg.Keys),
+		cfg:        cfg,
+	}
+}
+
+func assertDialogSubmitMsgType(t *testing.T, model tea.Model, want any) {
+	t.Helper()
+
+	updated, ok := model.(Model)
+	if !ok {
+		t.Fatalf("Update() model type = %T, want app.Model", model)
+	}
+	if updated.dialog == nil {
+		t.Fatal("Update() did not open a dialog")
+	}
+
+	_, submitCmd := updated.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	if submitCmd == nil {
+		t.Fatal("dialog submit command = nil")
+	}
+
+	msg := submitCmd()
+	switch want.(type) {
+	case renameDoneMsg:
+		if _, ok := msg.(renameDoneMsg); !ok {
+			t.Fatalf("dialog submit message = %T, want renameDoneMsg", msg)
+		}
+	case moveDoneMsg:
+		if _, ok := msg.(moveDoneMsg); !ok {
+			t.Fatalf("dialog submit message = %T, want moveDoneMsg", msg)
+		}
+	default:
+		t.Fatalf("unsupported expected message type %T", want)
 	}
 }
 
