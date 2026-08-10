@@ -549,13 +549,14 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// Detect shift from F13-F20 (shift+F1..F8) or any "shift+…" key name.
 		now := time.Now()
 		beforeDebug := keyDebugState{shiftHeld: m.shiftHeld, lastShiftSeen: m.lastShiftSeen}
+		physicalShiftActive := m.shiftHeld || m.shiftSeenRecently(now)
 		hasShift := hasShiftModifier(msg)
 		if hasShift {
 			m.shiftHeld = true
 			m.lastShiftSeen = now
 		}
 		shiftRecent := m.shiftSeenRecently(now)
-		effectiveMsg := effectiveKeyMsg(msg, m.shiftHeld || shiftRecent)
+		effectiveMsg := effectiveKeyMsg(msg, physicalShiftActive)
 		matchedAction := m.globalActionForKey(effectiveMsg)
 		afterDebug := keyDebugState{shiftHeld: m.shiftHeld, lastShiftSeen: m.lastShiftSeen, shiftRecent: shiftRecent}
 
@@ -900,17 +901,34 @@ func (m Model) shiftSeenRecently(now time.Time) bool {
 }
 
 func effectiveKeyMsg(msg tea.KeyMsg, shiftHeld bool) tea.KeyMsg {
-	if !shiftHeld || hasShiftModifier(msg) {
+	if !shiftHeld {
 		return msg
 	}
 
 	keyMsg := tea.Key(msg)
+	if isShiftF6TerminalConflictKey(keyMsg.Type) {
+		keyMsg.Type = tea.KeyF18
+		keyMsg.Runes = nil
+		return tea.KeyMsg(keyMsg)
+	}
+
+	if hasShiftModifier(msg) {
+		return msg
+	}
+
 	if shifted, ok := shiftedFunctionKey(keyMsg.Type); ok {
 		keyMsg.Type = shifted
 		keyMsg.Runes = nil
 		return tea.KeyMsg(keyMsg)
 	}
 	return msg
+}
+
+func isShiftF6TerminalConflictKey(keyType tea.KeyType) bool {
+	// macOS Terminal can send ESC[26~ for Shift+Fn+F6, which Bubble Tea
+	// reports as F14. When the physical Shift key was just seen, prefer the
+	// user's rename intent over the Shift+F2 remote-connect alias.
+	return keyType == tea.KeyF14
 }
 
 func shiftedFunctionKey(keyType tea.KeyType) (tea.KeyType, bool) {

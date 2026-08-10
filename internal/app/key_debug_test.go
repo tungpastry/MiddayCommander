@@ -55,6 +55,22 @@ func TestKeyDebugLogsRecentShiftF6Rename(t *testing.T) {
 	assertNestedString(t, event, "effective", "string", "f18")
 }
 
+func TestKeyDebugLogsMacTerminalShiftF6ConflictRename(t *testing.T) {
+	var buf bytes.Buffer
+	model := newKeyDispatchTestModel(t)
+	model.keyDebug = newKeyDebugLoggerForWriter(&buf)
+
+	shiftModel, _ := model.Update(ShiftPressMsg{})
+	_, _ = shiftModel.Update(tea.KeyMsg{Type: tea.KeyF14})
+
+	event := lastDebugEvent(t, buf.String())
+	if got := stringField(event, "matched_action"); got != "rename" {
+		t.Fatalf("matched_action = %q, want rename", got)
+	}
+	assertNestedString(t, event, "received", "string", "f14")
+	assertNestedString(t, event, "effective", "string", "f18")
+}
+
 func TestKeyDebugLogsKittyCSIUConversion(t *testing.T) {
 	var buf bytes.Buffer
 	logger := newKeyDebugLoggerForWriter(&buf)

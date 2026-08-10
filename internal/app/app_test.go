@@ -210,6 +210,50 @@ func TestNativeShiftF6OpensRenameDialog(t *testing.T) {
 	assertDialogSubmitMsgType(t, msgModel, renameDoneMsg{})
 }
 
+func TestMacTerminalShiftF6ConflictOpensRenameDialog(t *testing.T) {
+	model := newKeyDispatchTestModel(t)
+
+	shiftModel, cmd := model.Update(ShiftPressMsg{})
+	if cmd != nil {
+		t.Fatalf("Update(ShiftPressMsg) cmd = %v, want nil", cmd)
+	}
+
+	msgModel, cmd := shiftModel.Update(tea.KeyMsg{Type: tea.KeyF14})
+	if cmd != nil {
+		t.Fatalf("Update(shift-held f14) cmd = %v, want nil dialog update", cmd)
+	}
+
+	assertDialogSubmitMsgType(t, msgModel, renameDoneMsg{})
+}
+
+func TestPlainF14StillOpensRemoteConnect(t *testing.T) {
+	model := newKeyDispatchTestModel(t)
+
+	msgModel, cmd := model.Update(tea.KeyMsg{Type: tea.KeyF14})
+	if cmd != nil {
+		t.Fatalf("Update(f14) cmd = %v, want nil", cmd)
+	}
+
+	updated := msgModel.(Model)
+	if updated.connect == nil {
+		t.Fatal("Update(f14) did not open remote connect")
+	}
+}
+
+func TestCtrlKStillOpensRemoteConnect(t *testing.T) {
+	model := newKeyDispatchTestModel(t)
+
+	msgModel, cmd := model.Update(tea.KeyMsg{Type: tea.KeyCtrlK})
+	if cmd != nil {
+		t.Fatalf("Update(ctrl+k) cmd = %v, want nil", cmd)
+	}
+
+	updated := msgModel.(Model)
+	if updated.connect == nil {
+		t.Fatal("Update(ctrl+k) did not open remote connect")
+	}
+}
+
 func TestProfileSelectMsgLoadsActivePanel(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("loopback sftp tests rely on unix-flavored filesystem paths")

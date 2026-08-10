@@ -452,6 +452,8 @@ Thử theo thứ tự:
 1. Dùng `Shift+Fn+F6`.
 2. Kiểm tra macOS Keyboard settings để F1/F2/... hoạt động như standard function keys.
 3. Kiểm tra Terminal Settings -> Profiles -> Keyboard để xem `Shift+F6` đang gửi escape sequence nào.
+   Với Terminal.app, `Shift+F6` nên gửi `ESC[32~` để app nhận là `f18`.
+   Nếu profile đang gửi `ESC[26~`, Bubble Tea có thể báo là `f14`, trùng alias `Shift+F2` của Remote Profiles.
 4. Chạy:
 
    ```bash
@@ -463,6 +465,8 @@ Trong log, dòng quan trọng là `received`, `effective`, `matched_action`:
 
 - `received.string = "f6"` và `effective.string = "f18"`: app đã map Shift+F6 fallback và sẽ rename.
 - `received.string = "f18"`: terminal gửi native Shift+F6, app sẽ rename.
+- `received.string = "f14"` và `matched_action = "remote_connect"`: terminal đang gửi nhầm `Shift+F2`/`ESC[26~`, nên bản cũ sẽ mở Remote Profiles.
+- `received.string = "f14"` và `effective.string = "f18"`: app đã nhận diện conflict của Mac Terminal và sẽ rename.
 - Không có dòng F-key nào sau khi bấm phím: macOS/terminal không gửi phím vào app; hãy dùng `Fn` hoặc đổi thiết lập bàn phím.
 
 ### `$EDITOR` Hoặc `$PAGER` Mở Sai Chương Trình
