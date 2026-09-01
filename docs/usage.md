@@ -469,6 +469,25 @@ Trong log, dòng quan trọng là `received`, `effective`, `matched_action`:
 - `received.string = "f14"` và `effective.string = "f18"`: app đã nhận diện conflict của Mac Terminal và sẽ rename.
 - Không có dòng F-key nào sau khi bấm phím: macOS/terminal không gửi phím vào app; hãy dùng `Fn` hoặc đổi thiết lập bàn phím.
 
+### `mdc` Khởi Động Chậm Trên Terminal
+
+Bubble Tea v1 dò màu nền terminal bằng truy vấn `OSC 11` trước khi giao diện
+khởi động. Một số terminal, gồm một số cấu hình Terminal.app trên macOS, không
+phản hồi truy vấn này. MiddayCommander giới hạn thời gian chờ ở 100 ms để app
+tiếp tục dùng màu nền fallback thay vì đứng vài giây.
+
+Nếu app vẫn mở chậm, kiểm tra riêng thời gian khởi động binary và dung lượng
+thư mục hiện tại:
+
+```bash
+time mdc --version
+find . -maxdepth 1 -mindepth 1 | wc -l
+```
+
+`mdc --version` phải phản hồi gần như tức thời. Thư mục có rất nhiều entry hoặc
+metadata nằm trên ổ mạng vẫn có thể làm hai panel tải danh sách chậm sau khi TUI
+đã xuất hiện.
+
 ### `$EDITOR` Hoặc `$PAGER` Mở Sai Chương Trình
 
 Đặt biến môi trường trước khi chạy `mdc`:
