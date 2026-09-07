@@ -11,6 +11,7 @@ type KeyMap struct {
 	Quit          key.Binding
 	TogglePanel   key.Binding
 	SwapPanels    key.Binding
+	SameDir       key.Binding
 	Copy          key.Binding
 	Move          key.Binding
 	Mkdir         key.Binding
@@ -25,6 +26,12 @@ type KeyMap struct {
 	Help          key.Binding
 	ThemePicker   key.Binding
 	CmdExec       key.Binding
+	Terminal      key.Binding
+	ToggleHidden  key.Binding
+	QuickView     key.Binding
+	SelectGroup   key.Binding
+	DeselectGroup key.Binding
+	CopyPath      key.Binding
 }
 
 // KeyMapFromConfig builds the global keymap from config.
@@ -33,6 +40,7 @@ func KeyMapFromConfig(keys config.KeyBindings) KeyMap {
 		Quit:          binding(keys.Quit, "quit"),
 		TogglePanel:   binding(keys.TogglePanel, "switch panel"),
 		SwapPanels:    binding(keys.SwapPanels, "swap panels"),
+		SameDir:       binding(keys.SameDir, "same dir"),
 		Copy:          binding(keys.Copy, "copy"),
 		Move:          binding(keys.Move, "move"),
 		Mkdir:         binding(keys.Mkdir, "mkdir"),
@@ -47,6 +55,12 @@ func KeyMapFromConfig(keys config.KeyBindings) KeyMap {
 		Help:          binding(keys.Help, "help"),
 		ThemePicker:   binding(keys.ThemePicker, "themes"),
 		CmdExec:       binding(keys.CmdExec, "run cmd"),
+		Terminal:      binding(keys.Terminal, "terminal"),
+		ToggleHidden:  binding(keys.ToggleHidden, "toggle hidden"),
+		QuickView:     binding(keys.QuickView, "quick view"),
+		SelectGroup:   binding(keys.SelectGroup, "select group"),
+		DeselectGroup: binding(keys.DeselectGroup, "deselect group"),
+		CopyPath:      binding(keys.CopyPath, "copy path"),
 	}
 }
 

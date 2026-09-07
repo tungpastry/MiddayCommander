@@ -15,6 +15,25 @@ chưa nên xem là workflow ổn định cho người dùng.
 mdc
 ```
 
+Để trả đường dẫn local của panel active ra stdout khi thoát, dùng:
+
+```bash
+mdc -r
+```
+
+Có thể dùng chế độ này để tạo lệnh đổi thư mục trong shell:
+
+```bash
+mdcd() {
+    local dir
+    dir=$(mdc -r) && [ -n "$dir" ] && cd "$dir"
+}
+```
+
+Thêm hàm trên vào `~/.zshrc` hoặc `~/.bashrc`, sau đó chạy `mdcd`. Nếu panel
+active là SFTP/archive khi thoát, app giữ đường dẫn local lúc khởi chạy thay vì
+trả một URI mà shell không thể `cd` vào.
+
 Kiểm tra phiên bản:
 
 ```bash
@@ -47,6 +66,7 @@ tail -n 80 ~/.config/mdc/key-debug.log
 | --- | --- |
 | `Tab` | Đổi active panel trái/phải |
 | `Ctrl+U` | Hoán đổi vị trí hai panel |
+| `Alt+I` | Đưa panel không active tới cùng vị trí với panel active |
 | `Up`, `k` | Di chuyển lên |
 | `Down`, `j` | Di chuyển xuống |
 | `PgUp` | Lên một trang |
@@ -56,6 +76,7 @@ tail -n 80 ~/.config/mdc/key-debug.log
 | `Backspace` | Đi lên thư mục cha |
 | `Ctrl+G` | Mở hộp Go To để nhập path/URI |
 | `Ctrl+O` | Đổi chế độ sắp xếp |
+| `Ctrl+H` | Ẩn/hiện dotfiles và lưu lựa chọn vào config |
 | `F1` | Mở Help |
 | `F10`, `Ctrl+C` | Thoát app |
 
@@ -73,6 +94,11 @@ tiên hiện trước tệp; dòng `..` luôn nằm ở đầu nếu có thư m�
 `preview` với tệp local sẽ dùng `$PAGER`, mặc định `less`. Ảnh local có đuôi
 `.jpg`, `.jpeg`, `.png`, `.gif` sẽ mở image preview nội bộ. `edit` dùng
 `$EDITOR`, mặc định `vi`.
+
+Nếu đặt `behavior.enter_action = "execute"`, `Enter` sẽ chạy file local có
+executable bit. File không executable vẫn mở bằng `$EDITOR`; SFTP/archive không
+được thực thi. App hỏi xác nhận theo `confirm_execute`, và có thể giữ màn hình
+chờ Enter sau khi chương trình kết thúc bằng `pause_after_execute`.
 
 ## 4. Tìm Nhanh Trong Panel
 
@@ -101,15 +127,22 @@ Trong Quick Search:
 | `Shift+Up` | Mở rộng vùng chọn lên trên |
 | `Shift+Down` | Mở rộng vùng chọn xuống dưới |
 | `Ctrl+A`, `*` | Chọn tất cả mục trong thư mục hiện tại |
+| `+` | Chọn nhóm theo shell glob |
+| `-` | Bỏ chọn nhóm theo shell glob |
 | `!` | Đảo ngược vùng chọn |
 
 Khi có mục được chọn, footer panel sẽ hiện số lượng mục đang chọn. Các lệnh
 `Copy`, `Move`, `Delete` sẽ áp dụng cho toàn bộ vùng chọn. Nếu không có mục nào
 được chọn, lệnh sẽ áp dụng cho mục đang đặt con trỏ.
 
+Group selection khớp glob với tên từng entry, ví dụ `*.go`, `report-?.pdf` hay
+`[abc]*`. Dialog mở sẵn với `*`; nhấn `+`, `Enter` để chọn tất cả, hoặc `-`,
+`Enter` để bỏ chọn tất cả. Glob sai cú pháp sẽ hiện dialog lỗi và không làm
+thay đổi selection.
+
 Lưu ý: default trong code chỉ gán `toggle_select` cho `Insert` và
-`Ctrl+Space`. File `config.example.toml` có thêm `x` như một ví dụ tùy biến;
-nếu muốn dùng `x`, hãy thêm nó vào config của bạn.
+`Ctrl+Space`. Nếu muốn dùng thêm `x`, hãy khai báo
+`toggle_select = ["insert", "ctrl+space", "x"]` trong config riêng.
 
 ## 6. Thao Tác Tệp
 
@@ -118,6 +151,7 @@ nếu muốn dùng `x`, hãy thêm nó vào config của bạn.
 | `F3` | Preview/xem tệp |
 | `F4` | Edit/sửa tệp |
 | `F5` | Copy sang thư mục của panel đối diện |
+| `Shift+F5` | Chọn biến thể path/URI và copy vào clipboard |
 | `F6` | Move sang thư mục của panel đối diện |
 | `Shift+F6` | Rename mục tại con trỏ |
 | `F7` | Tạo thư mục mới |
@@ -143,7 +177,32 @@ nếu muốn dùng `x`, hãy thêm nó vào config của bạn.
 không áp dụng cho dòng `..`. Trên Mac, nếu `Shift+F6` không kích hoạt rename,
 thử `Shift+Fn+F6` hoặc bật chế độ function keys trong thiết lập bàn phím/macOS.
 
-## 7. Transfer Manager
+### Copy Path
+
+`Shift+F5` mở danh sách các biến thể của mục tại con trỏ, từ tên file/path
+tương đối đến path tuyệt đối hoặc URI đầy đủ. Dùng `Up`/`Down` rồi `Enter` để
+copy, `Esc` để đóng. Tính năng hoạt động cho local, SFTP và archive; dữ liệu
+được gửi bằng chuẩn terminal `OSC 52`, nên terminal cần cho phép clipboard qua
+escape sequence.
+
+## 7. Quick View
+
+`Ctrl+Q` thay panel không active bằng preview chỉ đọc của mục đang chọn. Khi
+con trỏ di chuyển, preview tự tải mục mới. Chỉ phần đầu tối đa 256 KiB được đọc,
+và file binary/thư mục/file rỗng được mô tả thay vì in dữ liệu rác.
+
+| Phím | Tác dụng |
+| --- | --- |
+| `Ctrl+Q`, `Esc` | Đóng Quick View |
+| `Tab` | Chuyển focus giữa danh sách và preview |
+| `Up`, `Down`, `j`, `k` | Cuộn preview khi preview có focus |
+| `PgUp`, `PgDn`, `Home`, `End` | Cuộn nhanh preview |
+
+Quick View hiện chỉ đọc file local. Với SFTP/archive app sẽ báo lỗi rõ ràng.
+Nếu terminal giữ `Ctrl+Q` cho XON/XOFF và app không nhận được phím, hãy tắt flow
+control bằng `stty -ixon` hoặc đổi `keys.quick_view`.
+
+## 8. Transfer Manager
 
 Khi Copy/Move có SFTP, hộp `Transfer Options` hiện trước khi queue tác vụ.
 
@@ -185,7 +244,7 @@ Trong overlay `Transfers`:
 
 Transfer events được ghi vào `~/.config/mdc/audit.log`.
 
-## 8. SFTP Remote
+## 9. SFTP Remote
 
 MiddayCommander hỗ trợ SFTP với host key verification nghiêm ngặt. Hiện tại app
 hỗ trợ auth qua `ssh-agent` hoặc private key không mã hóa passphrase trong flow
@@ -279,7 +338,7 @@ ${XDG_CACHE_HOME}/mdc/remote
 # hoặc thư mục cache mặc định của hệ điều hành + /mdc/remote
 ```
 
-## 9. Archive
+## 10. Archive
 
 Khi đang ở local filesystem, `Enter` trên một archive được nhận diện bởi
 `archiver` sẽ mở archive như một thư mục.
@@ -294,7 +353,7 @@ Trạng thái hiện tại của archive filesystem:
 - Không hỗ trợ move từ archive vì move cần xóa nguồn sau khi copy.
 - Preview/Edit trực tiếp tệp nằm bên trong archive hiện chưa được map vào pager/editor.
 
-## 10. Bookmarks
+## 11. Bookmarks
 
 Mở Bookmarks bằng `F2` hoặc `Ctrl+B`. Bookmark lưu local tại:
 
@@ -317,7 +376,7 @@ Danh sách bookmark được sắp xếp theo tần suất dùng và lần dùng
 
 Khi thêm bookmark, app hỏi `Name`. Có thể để trống nếu chỉ muốn lưu path/URI.
 
-## 11. Fuzzy Finder
+## 12. Fuzzy Finder
 
 Mở bằng `F9` hoặc `Ctrl+P`. Fuzzy Finder quét đệ quy từ thư mục đang mở trong
 panel active. Hỗ trợ local và SFTP, không hỗ trợ archive. Giới hạn quét hiện tại
@@ -336,7 +395,7 @@ là 50.000 entries, kết quả hiển thị tối đa 1.000 matches.
 Nếu chọn thư mục, panel sẽ mở thư mục đó. Nếu chọn tệp, panel mở thư mục cha và
 đặt con trỏ vào tệp đó.
 
-## 12. Theme Picker
+## 13. Theme Picker
 
 Mở bằng `Ctrl+T`.
 
@@ -353,7 +412,20 @@ Theme local nằm tại:
 Khi chọn theme remote, app lưu file TOML về thư mục themes local và cập nhật
 `theme = "<theme-name>"` trong `~/.config/mdc/config.toml`.
 
-## 13. Run Command
+## 14. Shell Workflow
+
+### Terminal Trong Thư Mục Hiện Tại
+
+Nhấn `Alt+O` để tạm rời TUI và mở interactive shell trong thư mục local của
+panel active. Thoát shell bằng `exit` hoặc `Ctrl+D` để quay lại MiddayCommander.
+Trên bàn phím Mac, `Alt` là phím `Option`, vì vậy shortcut là `Option+O`; nếu
+Terminal.app dùng Option để nhập ký tự đặc biệt, bật `Use Option as Meta key`
+trong Terminal Settings -> Profiles -> Keyboard.
+
+Terminal workflow chỉ áp dụng cho local directory. Panel SFTP/archive sẽ hiện
+dialog lỗi thay vì chạy shell ở một thư mục không xác định.
+
+### Run Command
 
 Mở bằng `Ctrl+R`. Tính năng này chỉ chạy trong local directory; nếu panel đang ở
 SFTP/archive, app sẽ báo lỗi.
@@ -371,13 +443,19 @@ và đặt working directory là thư mục local đang mở trong panel active.
 | Ký tự bất kỳ | Nhập lệnh |
 | `Left`, `Right`, `Home`, `End` | Di chuyển con trỏ |
 | `Backspace`, `Delete` | Sửa lệnh |
+| `Tab` | Hoàn thành path hoặc command hiện tại |
+| `Ctrl+E` | Bật/tắt completion chỉ gồm executable |
 | `Enter` | Chạy lệnh |
 | `Up`, `Down`, `PgUp`, `PgDn` | Cuộn output sau khi chạy |
 | `Esc` | Đóng overlay |
 
 Stdout và stderr được gom chung vào vùng output.
 
-## 14. Help Và Audit Log
+Completion path dựa trên thư mục panel active; completion command dựa trên
+`PATH` và chỉ liệt kê file có executable bit. Dialog `Ctrl+G` cũng hỗ trợ `Tab`
+để hoàn thành thư mục khi panel active là local.
+
+## 15. Help Và Audit Log
 
 Help:
 
@@ -393,7 +471,7 @@ Audit Log:
 - `r` để refresh.
 - `Esc` hoặc `q` để đóng.
 
-## 15. Cấu Hình
+## 16. Cấu Hình
 
 Config chính nằm tại:
 
@@ -417,10 +495,15 @@ theme = "catppuccin-mocha"
 [behavior]
 enter_action = "edit"
 space_action = "preview"
+confirm_execute = true
+pause_after_execute = false
+show_hidden = true
 
 [keys]
 rename = "shift+f6"
 toggle_select = ["insert", "ctrl+space", "x"]
+terminal = "alt+o"
+quick_view = "ctrl+q"
 ```
 
 Keybinding có thể là một string hoặc list string. Các key `shift+f1` đến
@@ -442,7 +525,7 @@ Bubble Tea.
 Nếu set `XDG_CONFIG_HOME`, config sẽ nằm trong `$XDG_CONFIG_HOME/mdc`. Nếu set
 `XDG_CACHE_HOME`, cache sẽ nằm trong `$XDG_CACHE_HOME/mdc`.
 
-## 16. Troubleshooting
+## 17. Troubleshooting
 
 ### Shift+F6 Trên Mac Không Mở Rename
 
@@ -498,6 +581,13 @@ export PAGER=less
 mdc
 ```
 
+### `Alt+O` Không Mở Terminal Trên Mac
+
+`Alt+O` tương ứng `Option+O`. Trong Terminal.app, mở Terminal Settings ->
+Profiles -> Keyboard và bật `Use Option as Meta key`. Nếu không muốn đổi profile
+terminal, remap trong config, ví dụ `terminal = "ctrl+x"`; tránh `Ctrl+O` vì đó
+là shortcut Sort mặc định của fork này.
+
 ### SFTP Báo Lỗi Host Key
 
 MiddayCommander dùng strict host key verification. Đảm bảo host nằm trong
@@ -515,18 +605,18 @@ ssh-keyscan -H 192.168.1.30 >> ~/.ssh/known_hosts
 - Với `auth = "key"`: đảm bảo `identity_file` trỏ đúng private key.
 - Password prompt trực tiếp chưa được hỗ trợ trong TUI hiện tại.
 
-## 17. Cheat Sheet
+## 18. Cheat Sheet
 
 | Nhóm | Phím |
 | --- | --- |
 | Help / Quit | `F1`, `F10`, `Ctrl+C`, double `Esc` |
-| Panel | `Tab`, `Ctrl+U` |
+| Panel | `Tab`, `Ctrl+U`, `Alt+I`, `Ctrl+H`, `Ctrl+O` |
 | Navigate | `Up/Down`, `j/k`, `PgUp/PgDn`, `Home/End`, `Backspace` |
 | Open | `Enter`, `Space` |
 | View/Edit | `F3`, `F4` |
-| Copy/Move | `F5`, `F6` |
+| Copy/Move/Path | `F5`, `F6`, `Shift+F5` |
 | Rename/Mkdir/Delete | `Shift+F6`, `F7`, `F8` |
-| Select | `Insert`, `Ctrl+Space`, `Shift+Up/Down`, `Ctrl+A`, `*`, `!` |
+| Select | `Insert`, `Ctrl+Space`, `Shift+Up/Down`, `Ctrl+A`, `*`, `+`, `-`, `!` |
 | Search | `Ctrl+S`, gõ ký tự trực tiếp, `F9`, `Ctrl+P` |
 | Remote | `Ctrl+K`, `Shift+F2`, `Ctrl+G` |
-| Tools | `F2`, `Ctrl+B`, `Ctrl+T`, `Ctrl+R`, `Ctrl+O` |
+| Tools | `F2`, `Ctrl+B`, `Ctrl+T`, `Ctrl+R`, `Alt+O`, `Ctrl+Q` |

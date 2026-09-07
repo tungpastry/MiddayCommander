@@ -6,6 +6,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 
+	"github.com/kooler/MiddayCommander/internal/ui/completion"
 	"github.com/kooler/MiddayCommander/internal/ui/overlay"
 	"github.com/kooler/MiddayCommander/internal/ui/theme"
 )
@@ -32,8 +33,10 @@ type Model struct {
 	message string
 	tag     string
 
-	input    string
-	inputPos int
+	input       string
+	inputPos    int
+	basePath    string
+	suggestions []string
 
 	progress float64
 	current  string
@@ -55,6 +58,10 @@ func NewConfirm(title, message, tag string) Model {
 }
 
 func NewInput(title, message, defaultValue, tag string) Model {
+	return NewInputWithBase(title, message, defaultValue, tag, "")
+}
+
+func NewInputWithBase(title, message, defaultValue, tag, basePath string) Model {
 	return Model{
 		kind:     KindInput,
 		title:    title,
@@ -62,6 +69,7 @@ func NewInput(title, message, defaultValue, tag string) Model {
 		tag:      tag,
 		input:    defaultValue,
 		inputPos: len(defaultValue),
+		basePath: basePath,
 		width:    50,
 	}
 }
@@ -127,6 +135,9 @@ func (m Model) BoxSize(screenWidth, screenHeight int) (int, int) {
 		messageLines = len(wrapText(m.message, innerWidth-2))
 	}
 	height := 2 + 1 + messageLines + 1 + 1
+	if m.kind == KindInput {
+		height += min(len(m.suggestions), 6)
+	}
 	if m.kind == KindProgress {
 		height++
 		if m.current != "" {
@@ -210,6 +221,11 @@ func (m Model) View(th theme.Theme, screenWidth, screenHeight int) string {
 			contentLines = append(contentLines, line)
 		}
 	}
+	if m.kind == KindInput && len(m.suggestions) > 0 {
+		for _, suggestion := range completion.FormatSuggestions(m.suggestions, innerWidth-1, 6) {
+			contentLines = append(contentLines, dimStyle.Render(" "+suggestion))
+		}
+	}
 
 	contentLines = append(contentLines, bgStyle.Render(strings.Repeat(" ", innerWidth)))
 
@@ -237,6 +253,8 @@ func (m Model) View(th theme.Theme, screenWidth, screenHeight int) string {
 			keyStyle.Render("Esc") + dimStyle.Render(":Cancel")
 	case KindInput:
 		footer = keyStyle.Render(" Enter") + dimStyle.Render(":OK") +
+			dimStyle.Render("  ") +
+			keyStyle.Render("Tab") + dimStyle.Render(":Complete") +
 			dimStyle.Render("  ") +
 			keyStyle.Render("Esc") + dimStyle.Render(":Cancel")
 	case KindProgress:
@@ -280,10 +298,14 @@ func (m *Model) updateInput(msg tea.KeyMsg) tea.Cmd {
 			m.input = m.input[:m.inputPos-1] + m.input[m.inputPos:]
 			m.inputPos--
 		}
+		m.updateSuggestions()
 	case "delete":
 		if m.inputPos < len(m.input) {
 			m.input = m.input[:m.inputPos] + m.input[m.inputPos+1:]
 		}
+		m.updateSuggestions()
+	case "tab":
+		m.completePath()
 	case "left":
 		if m.inputPos > 0 {
 			m.inputPos--
@@ -300,9 +322,41 @@ func (m *Model) updateInput(msg tea.KeyMsg) tea.Cmd {
 		if len(msg.String()) == 1 && msg.String()[0] >= 32 {
 			m.input = m.input[:m.inputPos] + msg.String() + m.input[m.inputPos:]
 			m.inputPos++
+			m.updateSuggestions()
 		}
 	}
 	return nil
+}
+
+func (m *Model) updateSuggestions() {
+	if m.basePath == "" {
+		m.suggestions = nil
+		return
+	}
+	_, _, prefix := completion.CurrentWord(m.input, m.inputPos)
+	m.suggestions = completion.CompletePathCandidates(prefix, m.basePath, true)
+}
+
+func (m *Model) completePath() {
+	if m.basePath == "" {
+		return
+	}
+	start, end, prefix := completion.CurrentWord(m.input, m.inputPos)
+	candidates := completion.CompletePathCandidates(prefix, m.basePath, true)
+	m.suggestions = candidates
+	if len(candidates) == 0 {
+		return
+	}
+	candidate := candidates[0]
+	if len(candidates) > 1 {
+		candidate = completion.CommonPrefix(candidates)
+		if len(candidate) <= len(prefix) {
+			return
+		}
+	}
+	m.input = m.input[:start] + candidate + m.input[end:]
+	m.inputPos = start + len(candidate)
+	m.suggestions = nil
 }
 
 func (m *Model) updateError(msg tea.KeyMsg) tea.Cmd {

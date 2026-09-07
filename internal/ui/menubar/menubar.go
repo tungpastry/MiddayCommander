@@ -54,6 +54,7 @@ func ShiftItems(cfg config.Config) []Item {
 		{cfg.Keys.View, "View"},
 		{cfg.Keys.Edit, "Edit"},
 		{cfg.Keys.Copy, "Copy"},
+		{cfg.Keys.CopyPath, "CpPath"},
 		{cfg.Keys.Move, "Move"},
 		{cfg.Keys.Mkdir, "Mkdir"},
 		{cfg.Keys.Delete, "Delete"},

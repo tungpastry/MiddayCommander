@@ -32,19 +32,20 @@ func (m Model) View(th theme.Theme) string {
 		headerStyle.Render(" "+truncOrPad(header, innerWidth-2)+" ") +
 		borderStyle.Render("┐")
 
-	var rows []string
+	vbar := borderStyle.Render("│")
+	rows := make([]string, 0, m.height)
 	end := m.offset + m.height
 	if end > len(m.entries) {
 		end = len(m.entries)
 	}
 	for index := m.offset; index < end; index++ {
 		row := m.renderRow(index, innerWidth, th)
-		rows = append(rows, borderStyle.Render("│")+row+borderStyle.Render("│"))
+		rows = append(rows, vbar+row+vbar)
 	}
 
 	emptyRow := th.FileNormal.Render(strings.Repeat(" ", innerWidth))
 	for len(rows) < m.height {
-		rows = append(rows, borderStyle.Render("│")+emptyRow+borderStyle.Render("│"))
+		rows = append(rows, vbar+emptyRow+vbar)
 	}
 
 	var footerText string
@@ -63,10 +64,14 @@ func (m Model) View(th theme.Theme) string {
 			}
 		}
 
+		hiddenMarker := ""
+		if !m.showHidden {
+			hiddenMarker = " [.hidden]"
+		}
 		if selectedCount > 0 {
-			footerText = fmt.Sprintf(" %d selected / %d files [%s] ", selectedCount, count, m.sortMode.String())
+			footerText = fmt.Sprintf(" %d selected / %d files [%s]%s ", selectedCount, count, m.sortMode.String(), hiddenMarker)
 		} else {
-			footerText = fmt.Sprintf(" %d files [%s] ", count, m.sortMode.String())
+			footerText = fmt.Sprintf(" %d files [%s]%s ", count, m.sortMode.String(), hiddenMarker)
 		}
 	}
 	footerLine := borderStyle.Render("└") +
@@ -111,8 +116,12 @@ func (m Model) renderRow(index, width int, th theme.Theme) string {
 
 	var style lipgloss.Style
 	switch {
+	case isCursor && isDir && isSelected:
+		style = th.FileCursorDirSelected
 	case isCursor && isDir:
 		style = th.FileCursorDir
+	case isCursor && isSelected:
+		style = th.FileCursorSelected
 	case isCursor:
 		style = th.FileCursor
 	case isSelected:

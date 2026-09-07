@@ -19,6 +19,9 @@ Dự án giữ nguyên luồng công việc điều khiển bằng bàn phím qu
 - **Advanced Transfer Queue:** Quản lý hàng đợi sao chép/di chuyển chạy nền với khả năng tạm dừng/tiếp tục và kiểm soát lỗi.
 - **Rich Aesthetic:** Hệ thống Live Theme Picker (TOML) cho phép xem trước giao diện ngay lập tức.
 - **Community Ready:** Kiến trúc mở rộng dễ dàng, cấu hình phím tắt linh hoạt.
+- **Local Workflow:** Quick View, ẩn/hiện dotfiles, đồng bộ vị trí hai panel và copy path qua clipboard.
+- **Shell Integration:** Completion cho command/path, mở terminal tại thư mục hiện tại và `mdc -r` để shell nhận lại active path.
+- **Advanced Selection:** Chọn vùng, chọn tất cả, đảo lựa chọn và chọn/bỏ chọn theo shell glob.
 
 ---
 

@@ -20,9 +20,14 @@ var (
 )
 
 func main() {
-	if len(os.Args) > 1 && (os.Args[1] == "--version" || os.Args[1] == "-v") {
+	if hasArg("--version") || hasArg("-v") {
 		fmt.Printf("mdc %s (%s) built %s\n", version, commit, date)
-		os.Exit(0)
+		return
+	}
+	returnPath := hasArg("-r")
+	launchDir, err := os.Getwd()
+	if err != nil {
+		launchDir = "."
 	}
 
 	var keyDebug *app.KeyDebugLogger
@@ -36,23 +41,44 @@ func main() {
 		defer keyDebug.Close()
 	}
 
+	uiOutput := os.Stdout
+	var ttyFile *os.File
+	if returnPath {
+		ttyFile, err = openControllingTTY()
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+			os.Exit(1)
+		}
+		defer ttyFile.Close()
+		uiOutput = ttyFile
+	}
+
 	// Enable Kitty keyboard protocol (flag 1: disambiguate) so the terminal
 	// reports modifier-only key presses (e.g. bare Shift). Terminals that
 	// don't support the protocol silently ignore this sequence.
-	os.Stdout.WriteString("\x1b[>1u")
-	defer os.Stdout.WriteString("\x1b[<u") // disable on exit
+	_, _ = uiOutput.WriteString("\x1b[>1u")
+	defer func() { _, _ = uiOutput.WriteString("\x1b[<u") }()
 
-	p := tea.NewProgram(
-		app.NewWithOptions(app.Options{KeyDebug: keyDebug}),
+	programOptions := []tea.ProgramOption{
 		tea.WithAltScreen(),
-		tea.WithMouseAllMotion(),
+		tea.WithMouseCellMotion(),
+		tea.WithFPS(30),
 		tea.WithFilter(app.KittyFilterWithDebug(keyDebug)),
+	}
+	if ttyFile != nil {
+		programOptions = append(programOptions, tea.WithInput(ttyFile), tea.WithOutput(ttyFile))
+	}
+	p := tea.NewProgram(
+		app.NewWithOptions(app.Options{KeyDebug: keyDebug, Clipboard: uiOutput}),
+		programOptions...,
 	)
 
 	// Poll OS-level shift key state and send messages to the Bubble Tea program.
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-	go pollShift(ctx, p)
+	if platform.ShiftPollingSupported {
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+		go pollShift(ctx, p)
+	}
 
 	finalModel, err := p.Run()
 	if closer, ok := finalModel.(interface{ Close() error }); ok {
@@ -61,6 +87,15 @@ func main() {
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 		os.Exit(1)
+	}
+	if returnPath {
+		exitPath := launchDir
+		if model, ok := finalModel.(interface{ ActivePanelLocalPath() (string, bool) }); ok {
+			if path, local := model.ActivePanelLocalPath(); local {
+				exitPath = path
+			}
+		}
+		fmt.Println(exitPath)
 	}
 }
 

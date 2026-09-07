@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -82,6 +83,60 @@ func editFileCmd(uri midfs.URI) tea.Cmd {
 	return tea.ExecProcess(command, func(err error) tea.Msg {
 		return externalDoneMsg{err: err}
 	})
+}
+
+func executeFileCmd(path, dir string, pause bool) tea.Cmd {
+	command := executableCommand(path, pause)
+	command.Dir = dir
+	return tea.ExecProcess(command, func(err error) tea.Msg {
+		return externalDoneMsg{err: err}
+	})
+}
+
+func executableCommand(path string, pause bool) *exec.Cmd {
+	if !pause {
+		return exec.Command(path)
+	}
+	if runtime.GOOS == "windows" {
+		shell := os.Getenv("COMSPEC")
+		if shell == "" {
+			shell = "cmd.exe"
+		}
+		return exec.Command(shell, "/C", fmt.Sprintf("\"%s\" & pause", path))
+	}
+	shell := os.Getenv("SHELL")
+	if shell == "" {
+		shell = "/bin/sh"
+	}
+	quoted := "'" + strings.ReplaceAll(path, "'", "'\\''") + "'"
+	script := fmt.Sprintf("status=0; %s || status=$?; printf '\nPress enter to continue...'; read -r; exit $status", quoted)
+	return exec.Command(shell, "-c", script)
+}
+
+func startTerminalCmd(dir string) tea.Cmd {
+	command := interactiveShellCommand(dir)
+	return tea.ExecProcess(command, func(err error) tea.Msg {
+		return externalDoneMsg{err: err}
+	})
+}
+
+func interactiveShellCommand(dir string) *exec.Cmd {
+	var command *exec.Cmd
+	if runtime.GOOS == "windows" {
+		shell := os.Getenv("COMSPEC")
+		if shell == "" {
+			shell = "cmd.exe"
+		}
+		command = exec.Command(shell)
+	} else {
+		shell := os.Getenv("SHELL")
+		if shell == "" {
+			shell = "/bin/sh"
+		}
+		command = exec.Command(shell, "-i")
+	}
+	command.Dir = dir
+	return command
 }
 
 func (m *Model) refreshBothPanels() tea.Cmd {

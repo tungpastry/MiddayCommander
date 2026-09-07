@@ -6,6 +6,8 @@ package platform
 */
 import "C"
 
+const ShiftPollingSupported = true
+
 // IsShiftPressed polls the OS-level modifier key state via CoreGraphics.
 // Returns true if either Shift key is currently held down.
 // This works without any special permissions on macOS.

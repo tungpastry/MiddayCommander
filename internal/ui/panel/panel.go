@@ -39,9 +39,11 @@ type Model struct {
 	selected     map[int]bool
 	selectAnchor int
 	sortMode     SortMode
+	showHidden   bool
 	width        int
 	height       int
 	active       bool
+	enterAction  string
 	err          error
 
 	searching   bool
@@ -57,6 +59,7 @@ func New(router *midfs.Router, dir midfs.URI, km KeyMap) Model {
 		selected:     make(map[int]bool),
 		selectAnchor: -1,
 		sortMode:     SortByName,
+		showHidden:   true,
 		keyMap:       km,
 	}
 }
@@ -90,6 +93,22 @@ func (m *Model) SetSize(width, height int) {
 
 func (m *Model) SetActive(active bool) {
 	m.active = active
+}
+
+func (m *Model) SetEnterAction(action string) {
+	m.enterAction = action
+}
+
+func (m *Model) SetShowHidden(show bool) {
+	m.showHidden = show
+}
+
+func (m Model) ShowHidden() bool {
+	return m.showHidden
+}
+
+func (m *Model) ToggleHidden() {
+	m.showHidden = !m.showHidden
 }
 
 func (m Model) Active() bool {
@@ -169,7 +188,11 @@ func (m *Model) HandleDirLoaded(msg DirLoadedMsg) {
 			Writable: false,
 		})
 	}
-	all = append(all, msg.Entries...)
+	for _, entry := range msg.Entries {
+		if m.showHidden || !entry.Hidden {
+			all = append(all, entry)
+		}
+	}
 
 	SortEntries(all, m.sortMode)
 	m.entries = all
@@ -350,6 +373,9 @@ func (m *Model) handleEnter() tea.Cmd {
 		m.offset = 0
 		return m.LoadDir()
 	}
+	if m.enterAction == "execute" && entry.URI.Scheme == midfs.SchemeFile && entry.Mode.IsRegular() && entry.Mode.Perm()&0o111 != 0 {
+		return func() tea.Msg { return ExecuteFileMsg{URI: entry.URI} }
+	}
 	return func() tea.Msg { return OpenFileMsg{URI: entry.URI} }
 }
 
@@ -385,6 +411,10 @@ type OpenFileMsg struct {
 }
 
 type PreviewFileMsg struct {
+	URI midfs.URI
+}
+
+type ExecuteFileMsg struct {
 	URI midfs.URI
 }
 
@@ -471,6 +501,40 @@ func (m *Model) invertSelection() {
 			m.selected[i] = !m.selected[i]
 		}
 	}
+}
+
+// SelectByPattern selects entries whose base name matches a shell glob.
+func (m *Model) SelectByPattern(pattern string) error {
+	for i, entry := range m.entries {
+		if entry.Name == ".." {
+			continue
+		}
+		matched, err := path.Match(pattern, entry.Name)
+		if err != nil {
+			return err
+		}
+		if matched {
+			m.selected[i] = true
+		}
+	}
+	return nil
+}
+
+// DeselectByPattern clears entries whose base name matches a shell glob.
+func (m *Model) DeselectByPattern(pattern string) error {
+	for i, entry := range m.entries {
+		if entry.Name == ".." {
+			continue
+		}
+		matched, err := path.Match(pattern, entry.Name)
+		if err != nil {
+			return err
+		}
+		if matched {
+			delete(m.selected, i)
+		}
+	}
+	return nil
 }
 
 func (m *Model) ChangeSortMode() {

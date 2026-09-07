@@ -19,10 +19,16 @@ type Config struct {
 
 // BehaviorConfig controls configurable behaviors.
 type BehaviorConfig struct {
-	// What Enter does on a file: "edit" (default) or "preview"
+	// What Enter does on a file: "edit" (default), "preview", or "execute".
 	EnterAction string `toml:"enter_action"`
 	// What Space does on a file: "preview" (default) or "edit"
 	SpaceAction string `toml:"space_action"`
+	// Whether to ask before executing an executable file.
+	ConfirmExecute *bool `toml:"confirm_execute"`
+	// Whether to pause after an executed file exits.
+	PauseAfterExecute bool `toml:"pause_after_execute"`
+	// Whether dotfiles are visible in panel listings.
+	ShowHidden *bool `toml:"show_hidden"`
 }
 
 // KeyBindings defines all configurable key bindings.
@@ -31,6 +37,7 @@ type KeyBindings struct {
 	Quit        StringOrList `toml:"quit"`
 	TogglePanel StringOrList `toml:"toggle_panel"`
 	SwapPanels  StringOrList `toml:"swap_panels"`
+	SameDir     StringOrList `toml:"same_dir"`
 	Copy        StringOrList `toml:"copy"`
 	Move        StringOrList `toml:"move"`
 	Mkdir       StringOrList `toml:"mkdir"`
@@ -53,6 +60,8 @@ type KeyBindings struct {
 	SelectUp        StringOrList `toml:"select_up"`
 	SelectDown      StringOrList `toml:"select_down"`
 	SelectAll       StringOrList `toml:"select_all"`
+	SelectGroup     StringOrList `toml:"select_group"`
+	DeselectGroup   StringOrList `toml:"deselect_group"`
 	InvertSelection StringOrList `toml:"invert_selection"`
 
 	// Search
@@ -67,6 +76,10 @@ type KeyBindings struct {
 	ThemePicker   StringOrList `toml:"theme_picker"`
 	CmdExec       StringOrList `toml:"cmd_exec"`
 	Sort          StringOrList `toml:"sort"`
+	Terminal      StringOrList `toml:"terminal"`
+	ToggleHidden  StringOrList `toml:"toggle_hidden"`
+	QuickView     StringOrList `toml:"quick_view"`
+	CopyPath      StringOrList `toml:"copy_path"`
 }
 
 // StringOrList can unmarshal from either a single string or a list of strings.
@@ -93,8 +106,10 @@ func Default() Config {
 	return Config{
 		Theme: "",
 		Behavior: BehaviorConfig{
-			EnterAction: "edit",
-			SpaceAction: "preview",
+			EnterAction:    "edit",
+			SpaceAction:    "preview",
+			ConfirmExecute: boolPtr(true),
+			ShowHidden:     boolPtr(true),
 		},
 		Keys: keys,
 	}
@@ -106,6 +121,7 @@ func DefaultKeyBindings() KeyBindings {
 		Quit:        StringOrList{"f10", "ctrl+c"},
 		TogglePanel: StringOrList{"tab"},
 		SwapPanels:  StringOrList{"ctrl+u"},
+		SameDir:     StringOrList{"alt+i"},
 		Copy:        StringOrList{"f5"},
 		Move:        StringOrList{"f6"},
 		Mkdir:       StringOrList{"f7"},
@@ -126,6 +142,8 @@ func DefaultKeyBindings() KeyBindings {
 		SelectUp:        StringOrList{"shift+up"},
 		SelectDown:      StringOrList{"shift+down"},
 		SelectAll:       StringOrList{"ctrl+a", "*"},
+		SelectGroup:     StringOrList{"+"},
+		DeselectGroup:   StringOrList{"-"},
 		InvertSelection: StringOrList{"!"},
 
 		QuickSearch: StringOrList{"ctrl+s"},
@@ -138,6 +156,10 @@ func DefaultKeyBindings() KeyBindings {
 		ThemePicker:   StringOrList{"ctrl+t"},
 		CmdExec:       StringOrList{"ctrl+r"},
 		Sort:          StringOrList{"ctrl+o"},
+		Terminal:      StringOrList{"alt+o"},
+		ToggleHidden:  StringOrList{"ctrl+h"},
+		QuickView:     StringOrList{"ctrl+q"},
+		CopyPath:      StringOrList{"shift+f5"},
 	}
 }
 
@@ -165,6 +187,13 @@ func Load() Config {
 	if fileCfg.Behavior.SpaceAction != "" {
 		cfg.Behavior.SpaceAction = fileCfg.Behavior.SpaceAction
 	}
+	if fileCfg.Behavior.ConfirmExecute != nil {
+		cfg.Behavior.ConfirmExecute = fileCfg.Behavior.ConfirmExecute
+	}
+	cfg.Behavior.PauseAfterExecute = fileCfg.Behavior.PauseAfterExecute
+	if fileCfg.Behavior.ShowHidden != nil {
+		cfg.Behavior.ShowHidden = fileCfg.Behavior.ShowHidden
+	}
 
 	mergeKeys(&cfg.Keys, &fileCfg.Keys)
 	normalizeAllKeys(&cfg.Keys)
@@ -176,6 +205,7 @@ func mergeKeys(dst, src *KeyBindings) {
 	mergeKey(&dst.Quit, src.Quit)
 	mergeKey(&dst.TogglePanel, src.TogglePanel)
 	mergeKey(&dst.SwapPanels, src.SwapPanels)
+	mergeKey(&dst.SameDir, src.SameDir)
 	mergeKey(&dst.Copy, src.Copy)
 	mergeKey(&dst.Move, src.Move)
 	mergeKey(&dst.Mkdir, src.Mkdir)
@@ -194,6 +224,8 @@ func mergeKeys(dst, src *KeyBindings) {
 	mergeKey(&dst.SelectUp, src.SelectUp)
 	mergeKey(&dst.SelectDown, src.SelectDown)
 	mergeKey(&dst.SelectAll, src.SelectAll)
+	mergeKey(&dst.SelectGroup, src.SelectGroup)
+	mergeKey(&dst.DeselectGroup, src.DeselectGroup)
 	mergeKey(&dst.InvertSelection, src.InvertSelection)
 	mergeKey(&dst.QuickSearch, src.QuickSearch)
 	mergeKey(&dst.GoTo, src.GoTo)
@@ -204,6 +236,10 @@ func mergeKeys(dst, src *KeyBindings) {
 	mergeKey(&dst.ThemePicker, src.ThemePicker)
 	mergeKey(&dst.CmdExec, src.CmdExec)
 	mergeKey(&dst.Sort, src.Sort)
+	mergeKey(&dst.Terminal, src.Terminal)
+	mergeKey(&dst.ToggleHidden, src.ToggleHidden)
+	mergeKey(&dst.QuickView, src.QuickView)
+	mergeKey(&dst.CopyPath, src.CopyPath)
 }
 
 func mergeKey(dst *StringOrList, src StringOrList) {
@@ -236,6 +272,7 @@ func normalizeAllKeys(kb *KeyBindings) {
 	normalizeSlice(&kb.Quit)
 	normalizeSlice(&kb.TogglePanel)
 	normalizeSlice(&kb.SwapPanels)
+	normalizeSlice(&kb.SameDir)
 	normalizeSlice(&kb.Copy)
 	normalizeSlice(&kb.Move)
 	normalizeSlice(&kb.Mkdir)
@@ -254,6 +291,8 @@ func normalizeAllKeys(kb *KeyBindings) {
 	normalizeSlice(&kb.SelectUp)
 	normalizeSlice(&kb.SelectDown)
 	normalizeSlice(&kb.SelectAll)
+	normalizeSlice(&kb.SelectGroup)
+	normalizeSlice(&kb.DeselectGroup)
 	normalizeSlice(&kb.InvertSelection)
 	normalizeSlice(&kb.QuickSearch)
 	normalizeSlice(&kb.GoTo)
@@ -264,6 +303,14 @@ func normalizeAllKeys(kb *KeyBindings) {
 	normalizeSlice(&kb.ThemePicker)
 	normalizeSlice(&kb.CmdExec)
 	normalizeSlice(&kb.Sort)
+	normalizeSlice(&kb.Terminal)
+	normalizeSlice(&kb.ToggleHidden)
+	normalizeSlice(&kb.QuickView)
+	normalizeSlice(&kb.CopyPath)
+}
+
+func boolPtr(value bool) *bool {
+	return &value
 }
 
 // SaveTheme writes the theme name to the config file, preserving other settings.
@@ -298,5 +345,35 @@ func SaveTheme(name string) error {
 		content = fmt.Sprintf("theme = %q\n", name) + content
 	}
 
+	return os.WriteFile(configPath, []byte(content), 0o644)
+}
+
+// SaveShowHidden updates the persisted behavior without replacing other config.
+func SaveShowHidden(show bool) error {
+	dir := ConfigDir()
+	configPath := ConfigPath()
+	value := strconv.FormatBool(show)
+
+	data, err := os.ReadFile(configPath)
+	if err != nil {
+		if err := os.MkdirAll(dir, 0o755); err != nil {
+			return err
+		}
+		return os.WriteFile(configPath, []byte("[behavior]\nshow_hidden = "+value+"\n"), 0o644)
+	}
+
+	content := string(data)
+	lineRE := regexp.MustCompile(`(?m)^(\s*)show_hidden\s*=\s*\S+`)
+	if lineRE.MatchString(content) {
+		content = lineRE.ReplaceAllString(content, "${1}show_hidden = "+value)
+	} else {
+		behaviorRE := regexp.MustCompile(`(?m)^\[behavior\]\s*$`)
+		if loc := behaviorRE.FindStringIndex(content); loc != nil {
+			insertAt := loc[1]
+			content = content[:insertAt] + "\nshow_hidden = " + value + content[insertAt:]
+		} else {
+			content = strings.TrimRight(content, "\n") + "\n\n[behavior]\nshow_hidden = " + value + "\n"
+		}
+	}
 	return os.WriteFile(configPath, []byte(content), 0o644)
 }

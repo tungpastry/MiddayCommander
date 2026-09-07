@@ -4,6 +4,8 @@ package platform
 
 import "syscall"
 
+const ShiftPollingSupported = true
+
 var (
 	user32           = syscall.NewLazyDLL("user32.dll")
 	getAsyncKeyState = user32.NewProc("GetAsyncKeyState")

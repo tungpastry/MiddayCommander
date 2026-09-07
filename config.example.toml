@@ -8,10 +8,17 @@ theme = "catppuccin-mocha"
 
 # ─── Behavior ────────────────────────────────────
 [behavior]
-# What Enter does on a file: "edit" or "preview"
+# What Enter does on a file: "edit", "preview", or "execute".
+# With "execute", executable local files run while other files still open in $EDITOR.
 enter_action = "edit"
 # What Space does on a file: "preview" or "edit"
 space_action = "preview"
+# Ask before an executable local file is run.
+confirm_execute = true
+# Keep the terminal open until Enter is pressed after an executable exits.
+pause_after_execute = false
+# Show dotfiles. Ctrl+H changes this value and persists it here.
+show_hidden = true
 
 # ─── Key Bindings ────────────────────────────────
 # Each binding can be a single string or a list of strings.
@@ -22,6 +29,7 @@ space_action = "preview"
 quit          = ["f10", "ctrl+c"]
 toggle_panel  = "tab"
 swap_panels   = "ctrl+u"
+same_dir      = "alt+i"
 copy          = "f5"
 move          = "f6"
 mkdir         = "f7"
@@ -38,12 +46,16 @@ page_down     = "pgdown"
 home          = "home"
 end           = "end"
 go_back       = "backspace"
+sort          = "ctrl+o"
+toggle_hidden = "ctrl+h"
 
 # Selection
 toggle_select = ["insert", "ctrl+space", "x"]
 select_up     = "shift+up"
 select_down   = "shift+down"
 select_all    = ["ctrl+a", "*"]
+select_group  = "+"
+deselect_group = "-"
 invert_selection = "!"
 
 # Search
@@ -57,3 +69,6 @@ bookmarks      = ["f2", "ctrl+b"]
 help           = "f1"
 theme_picker   = "ctrl+t"
 cmd_exec       = "ctrl+r"
+terminal       = "alt+o"
+quick_view     = "ctrl+q"
+copy_path      = "shift+f5"

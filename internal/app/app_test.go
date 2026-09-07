@@ -28,6 +28,7 @@ import (
 	"github.com/kooler/MiddayCommander/internal/transfer"
 	"github.com/kooler/MiddayCommander/internal/tui/dialogs"
 	"github.com/kooler/MiddayCommander/internal/ui/panel"
+	"github.com/kooler/MiddayCommander/internal/ui/quickview"
 	pkgsftp "github.com/pkg/sftp"
 	"golang.org/x/crypto/ssh"
 	"golang.org/x/crypto/ssh/knownhosts"
@@ -251,6 +252,69 @@ func TestCtrlKStillOpensRemoteConnect(t *testing.T) {
 	updated := msgModel.(Model)
 	if updated.connect == nil {
 		t.Fatal("Update(ctrl+k) did not open remote connect")
+	}
+}
+
+func TestWorkflowKeyBindingsDoNotConflict(t *testing.T) {
+	model := newKeyDispatchTestModel(t)
+	tests := []struct {
+		name string
+		key  tea.KeyMsg
+		want string
+	}{
+		{"same directory", tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'i'}, Alt: true}, "same_dir"},
+		{"terminal", tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'o'}, Alt: true}, "terminal"},
+		{"toggle hidden", tea.KeyMsg{Type: tea.KeyCtrlH}, "toggle_hidden"},
+		{"quick view", tea.KeyMsg{Type: tea.KeyCtrlQ}, "quick_view"},
+		{"copy path", tea.KeyMsg{Type: tea.KeyF17}, "copy_path"},
+		{"select group", tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'+'}}, "select_group"},
+		{"deselect group", tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'-'}}, "deselect_group"},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			if got := model.globalActionForKey(test.key); got != test.want {
+				t.Fatalf("globalActionForKey(%q) = %q, want %q", test.key.String(), got, test.want)
+			}
+		})
+	}
+	if got := model.globalActionForKey(tea.KeyMsg{Type: tea.KeyCtrlO}); got != "" {
+		t.Fatalf("Ctrl+O global action = %q, want panel sort handling", got)
+	}
+}
+
+func TestSameDirCopiesActiveURIToInactivePanel(t *testing.T) {
+	model := newKeyDispatchTestModel(t)
+	want := model.leftPanel.URI()
+	updatedModel, cmd := model.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'i'}, Alt: true})
+	updated := updatedModel.(Model)
+	if updated.rightPanel.URI().String() != want.String() {
+		t.Fatalf("inactive URI = %q, want %q", updated.rightPanel.URI().String(), want.String())
+	}
+	if cmd == nil {
+		t.Fatal("same-dir did not request a directory load")
+	}
+	if msg, ok := cmd().(panel.DirLoadedMsg); !ok || msg.Err != nil {
+		t.Fatalf("same-dir load = %#v (%T)", msg, msg)
+	}
+}
+
+func TestQuickViewAndCopyPathStartForLocalEntry(t *testing.T) {
+	model := newKeyDispatchTestModel(t)
+	quickModel, cmd := model.startQuickView()
+	quick := quickModel.(Model)
+	if quick.quickView == nil || cmd == nil {
+		t.Fatal("startQuickView did not create a preview and load command")
+	}
+	if loaded, ok := cmd().(quickview.LoadedMsg); !ok || loaded.Err != nil {
+		t.Fatalf("quick view load = %#v (%T)", loaded, loaded)
+	}
+
+	var clipboard bytes.Buffer
+	model.clipboard = &clipboard
+	copyModel, _ := model.startCopyPath()
+	copyPathModel := copyModel.(Model)
+	if copyPathModel.copyPath == nil {
+		t.Fatal("startCopyPath did not create an overlay")
 	}
 }
 

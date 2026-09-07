@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -25,11 +26,13 @@ import (
 	"github.com/kooler/MiddayCommander/internal/transfer"
 	"github.com/kooler/MiddayCommander/internal/tui/dialogs"
 	"github.com/kooler/MiddayCommander/internal/ui/cmdexec"
+	"github.com/kooler/MiddayCommander/internal/ui/copypath"
 	"github.com/kooler/MiddayCommander/internal/ui/fuzzy"
 	"github.com/kooler/MiddayCommander/internal/ui/help"
 	"github.com/kooler/MiddayCommander/internal/ui/menubar"
 	"github.com/kooler/MiddayCommander/internal/ui/overlay"
 	"github.com/kooler/MiddayCommander/internal/ui/panel"
+	"github.com/kooler/MiddayCommander/internal/ui/quickview"
 	"github.com/kooler/MiddayCommander/internal/ui/theme"
 	"github.com/kooler/MiddayCommander/internal/ui/themepicker"
 )
@@ -50,6 +53,9 @@ const (
 	tagMkdir            = "mkdir"
 	tagRename           = "rename"
 	tagGoTo             = "goto"
+	tagSelectGroup      = "select-group"
+	tagDeselectGroup    = "deselect-group"
+	tagExecute          = "execute"
 	tagRemoteEditUpload = "remote-edit-upload"
 )
 
@@ -80,6 +86,9 @@ type Model struct {
 	help            *help.Model
 	themePicker     *themepicker.Model
 	cmdExec         *cmdexec.Model
+	copyPath        *copypath.Model
+	quickView       *quickview.Model
+	quickFocus      bool
 	imagePreview    *dialogs.ImagePreviewModel
 	transferHidden  bool
 
@@ -96,6 +105,7 @@ type Model struct {
 	pendingSources    []midfs.URI
 	pendingDest       midfs.URI
 	pendingRemoteEdit *remoteWorkfile
+	pendingExecute    midfs.URI
 
 	// Double-Esc to quit
 	lastEsc time.Time
@@ -105,10 +115,12 @@ type Model struct {
 	shiftHeld      bool
 	lastShiftSeen  time.Time
 	keyDebug       *KeyDebugLogger
+	clipboard      io.Writer
 }
 
 type Options struct {
-	KeyDebug *KeyDebugLogger
+	KeyDebug  *KeyDebugLogger
+	Clipboard io.Writer
 }
 
 // New creates a new application model.
@@ -141,6 +153,14 @@ func NewWithOptions(opts Options) Model {
 	left.SetActive(true)
 
 	right := panel.New(router, midfs.NewFileURI(home), panelKM)
+	showHidden := cfg.Behavior.ShowHidden == nil || *cfg.Behavior.ShowHidden
+	left.SetShowHidden(showHidden)
+	right.SetShowHidden(showHidden)
+	left.SetEnterAction(cfg.Behavior.EnterAction)
+	right.SetEnterAction(cfg.Behavior.EnterAction)
+	if opts.Clipboard == nil {
+		opts.Clipboard = os.Stdout
+	}
 
 	th := theme.Default()
 	if cfg.Theme != "" {
@@ -169,6 +189,7 @@ func NewWithOptions(opts Options) Model {
 		profilesErr:    profileErr,
 		transferMgr:    transfer.NewManager(router, auditLogger),
 		keyDebug:       opts.KeyDebug,
+		clipboard:      opts.Clipboard,
 	}
 }
 
@@ -222,11 +243,31 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case panel.DirLoadedMsg:
 		m.leftPanel.HandleDirLoaded(msg)
 		m.rightPanel.HandleDirLoaded(msg)
+		if m.quickView != nil && !m.quickFocus {
+			return m, m.syncQuickView()
+		}
 		return m, nil
 
 	case panel.RestoreCursorMsg:
 		m.activePanel().RestoreCursor(msg.Name)
+		if m.quickView != nil && !m.quickFocus {
+			return m, m.syncQuickView()
+		}
 		return m, nil
+
+	case quickview.LoadedMsg:
+		if m.quickView != nil {
+			m.quickView.HandleLoaded(msg)
+		}
+		return m, nil
+
+	case copypath.DismissMsg:
+		m.copyPath = nil
+		return m, nil
+
+	case copypath.ErrorMsg:
+		m.copyPath = nil
+		return m.showError("Copy Path Error", msg.Err)
 
 	// Help messages
 	case help.DismissMsg:
@@ -443,6 +484,15 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case panel.PreviewFileMsg:
 		return m, m.fileActionCmd(msg.URI, m.cfg.Behavior.SpaceAction)
 
+	case panel.ExecuteFileMsg:
+		if m.cfg.Behavior.ConfirmExecute == nil || *m.cfg.Behavior.ConfirmExecute {
+			m.pendingExecute = msg.URI
+			dialog := dialogs.NewConfirm("Execute File", fmt.Sprintf("Run %s?", midfs.Base(msg.URI)), tagExecute)
+			m.dialog = &dialog
+			return m, nil
+		}
+		return m, executeFileCmd(msg.URI.Path, m.activePanel().URI().Path, m.cfg.Behavior.PauseAfterExecute)
+
 	// File operation results
 	case copyDoneMsg:
 		m.dialog = nil
@@ -604,6 +654,13 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, cmd
 		}
 
+		if m.copyPath != nil {
+			m.keyDebug.LogKey(msg, effectiveMsg, beforeDebug, afterDebug, matchedAction, false)
+			newCopyPath, cmd := m.copyPath.Update(msg)
+			m.copyPath = &newCopyPath
+			return m, cmd
+		}
+
 		// Theme picker gets priority when active
 		if m.themePicker != nil {
 			m.keyDebug.LogKey(msg, effectiveMsg, beforeDebug, afterDebug, matchedAction, false)
@@ -660,6 +717,22 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		}
 
+		if m.quickView != nil {
+			if msg.String() == "esc" || key.Matches(effectiveMsg, m.keyMap.QuickView) {
+				m.closeQuickView()
+				return m, nil
+			}
+			if key.Matches(effectiveMsg, m.keyMap.TogglePanel) {
+				m.quickFocus = !m.quickFocus
+				m.quickView.SetFocused(m.quickFocus)
+				return m, nil
+			}
+			if m.quickFocus {
+				m.quickView.Update(msg)
+				return m, nil
+			}
+		}
+
 		// Double-Esc to quit
 		if msg.String() == "esc" {
 			m.keyDebug.LogKey(msg, effectiveMsg, beforeDebug, afterDebug, "double-esc", true)
@@ -683,6 +756,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 
 		case "swap_panels":
+			if m.quickView != nil {
+				return m, nil
+			}
 			m.leftPanel, m.rightPanel = m.rightPanel, m.leftPanel
 			m.recalcLayout()
 			return m, nil
@@ -728,10 +804,38 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		case "cmd_exec":
 			return m.startCmdExec()
+
+		case "same_dir":
+			m.inactivePanelModel().SetURI(m.activePanel().URI())
+			return m, m.inactivePanelModel().LoadDir()
+
+		case "toggle_hidden":
+			m.leftPanel.ToggleHidden()
+			m.rightPanel.ToggleHidden()
+			_ = config.SaveShowHidden(m.leftPanel.ShowHidden())
+			return m, m.refreshBothPanels()
+
+		case "quick_view":
+			return m.startQuickView()
+
+		case "copy_path":
+			return m.startCopyPath()
+
+		case "select_group":
+			return m.startSelectGroup()
+
+		case "deselect_group":
+			return m.startDeselectGroup()
+
+		case "terminal":
+			return m.startTerminal()
 		}
 
 		// Delegate to active panel
 		cmd := m.activePanel().Update(msg)
+		if m.quickView != nil && !m.quickFocus {
+			return m, tea.Batch(cmd, m.syncQuickView())
+		}
 		return m, cmd
 	}
 
@@ -745,6 +849,14 @@ func (m Model) View() string {
 
 	leftView := m.leftPanel.View(m.theme)
 	rightView := m.rightPanel.View(m.theme)
+	if m.quickView != nil {
+		preview := m.quickView.View(m.theme, m.quickFocus)
+		if m.focus == FocusLeft {
+			rightView = preview
+		} else {
+			leftView = preview
+		}
+	}
 	panels := lipgloss.JoinHorizontal(lipgloss.Top, leftView, rightView)
 
 	items := m.menuItems
@@ -755,7 +867,11 @@ func (m Model) View() string {
 
 	screen := lipgloss.JoinVertical(lipgloss.Left, panels, fkeyView)
 
-	if m.auditLog != nil {
+	if m.copyPath != nil {
+		box := m.copyPath.View(m.theme, m.width, m.height)
+		bw, bh := m.copyPath.BoxSize(m.width, m.height)
+		screen = overlay.Place(screen, box, m.width, m.height, bw, bh)
+	} else if m.auditLog != nil {
 		box := m.auditLog.View(m.theme, m.width, m.height)
 		bw, bh := m.auditLog.BoxSize(m.width, m.height)
 		screen = overlay.Place(screen, box, m.width, m.height, bw, bh)
@@ -842,6 +958,8 @@ func (m Model) dispatchKey(raw string) (tea.Model, tea.Cmd) {
 		return m.startThemePicker()
 	case contains(cfg.CmdExec, raw):
 		return m.startCmdExec()
+	case contains(cfg.CopyPath, raw):
+		return m.startCopyPath()
 	}
 	return m, nil
 }
@@ -854,6 +972,8 @@ func (m Model) globalActionForKey(msg tea.KeyMsg) string {
 		return "toggle_panel"
 	case key.Matches(msg, m.keyMap.SwapPanels):
 		return "swap_panels"
+	case key.Matches(msg, m.keyMap.SameDir):
+		return "same_dir"
 	case key.Matches(msg, m.keyMap.Copy):
 		return "copy"
 	case key.Matches(msg, m.keyMap.Move):
@@ -882,6 +1002,18 @@ func (m Model) globalActionForKey(msg tea.KeyMsg) string {
 		return "theme_picker"
 	case key.Matches(msg, m.keyMap.CmdExec):
 		return "cmd_exec"
+	case key.Matches(msg, m.keyMap.ToggleHidden):
+		return "toggle_hidden"
+	case key.Matches(msg, m.keyMap.QuickView):
+		return "quick_view"
+	case key.Matches(msg, m.keyMap.CopyPath):
+		return "copy_path"
+	case key.Matches(msg, m.keyMap.SelectGroup):
+		return "select_group"
+	case key.Matches(msg, m.keyMap.DeselectGroup):
+		return "deselect_group"
+	case key.Matches(msg, m.keyMap.Terminal):
+		return "terminal"
 	default:
 		return ""
 	}
@@ -1063,9 +1195,49 @@ func (m Model) startGoTo() (tea.Model, tea.Cmd) {
 	defaultValue := m.activePanel().URI().String()
 	if localPath, ok := m.activePanelLocalPath(); ok {
 		defaultValue = localPath
+		dialog := dialogs.NewInputWithBase("Go To", "Path:", defaultValue, tagGoTo, localPath)
+		m.dialog = &dialog
+		return m, nil
 	}
 	d := dialogs.NewInput("Go To", "Path:", defaultValue, tagGoTo)
 	m.dialog = &d
+	return m, nil
+}
+
+func (m Model) startQuickView() (tea.Model, tea.Cmd) {
+	if _, ok := m.activePanelLocalPath(); !ok {
+		return m.showError("Quick View Error", fmt.Errorf("quick view is only available for local files"))
+	}
+	entry := m.activePanel().CurrentEntry()
+	if entry == nil || entry.Name == ".." {
+		return m, nil
+	}
+	preview := quickview.New()
+	m.quickView = &preview
+	m.quickFocus = false
+	m.recalcLayout()
+	return m, m.quickView.SetTarget(*entry)
+}
+
+func (m Model) startCopyPath() (tea.Model, tea.Cmd) {
+	entry := m.activePanel().CurrentEntry()
+	if entry == nil || entry.Name == ".." {
+		return m, nil
+	}
+	picker := copypath.New(entry.URI, m.width, m.height, m.clipboard)
+	m.copyPath = &picker
+	return m, nil
+}
+
+func (m Model) startSelectGroup() (tea.Model, tea.Cmd) {
+	dialog := dialogs.NewInput("Select Group", "Pattern:", "*", tagSelectGroup)
+	m.dialog = &dialog
+	return m, nil
+}
+
+func (m Model) startDeselectGroup() (tea.Model, tea.Cmd) {
+	dialog := dialogs.NewInput("Deselect Group", "Pattern:", "*", tagDeselectGroup)
+	m.dialog = &dialog
 	return m, nil
 }
 
@@ -1131,6 +1303,14 @@ func (m Model) startCmdExec() (tea.Model, tea.Cmd) {
 	ce := cmdexec.New(path, m.width, m.height)
 	m.cmdExec = &ce
 	return m, nil
+}
+
+func (m Model) startTerminal() (tea.Model, tea.Cmd) {
+	localPath, ok := m.activePanelLocalPath()
+	if !ok {
+		return m.showError("Terminal Error", fmt.Errorf("terminal access is only available in local directories"))
+	}
+	return m, startTerminalCmd(localPath)
 }
 
 func (m Model) startFuzzyFind() (tea.Model, tea.Cmd) {
@@ -1236,6 +1416,25 @@ func (m Model) handleDialogResult(result dialogs.Result) (tea.Model, tea.Cmd) {
 			m.activePanel().SetURI(uri)
 			return m, m.activePanel().LoadDir()
 		}
+	case tagSelectGroup:
+		if result.Confirmed && result.Text != "" {
+			if err := m.activePanel().SelectByPattern(result.Text); err != nil {
+				return m.showError("Invalid Pattern", err)
+			}
+		}
+	case tagDeselectGroup:
+		if result.Confirmed && result.Text != "" {
+			if err := m.activePanel().DeselectByPattern(result.Text); err != nil {
+				return m.showError("Invalid Pattern", err)
+			}
+		}
+	case tagExecute:
+		if result.Confirmed && m.pendingExecute.Scheme == midfs.SchemeFile {
+			uri := m.pendingExecute
+			m.pendingExecute = midfs.URI{}
+			return m, executeFileCmd(uri.Path, m.activePanel().URI().Path, m.cfg.Behavior.PauseAfterExecute)
+		}
+		m.pendingExecute = midfs.URI{}
 	case tagRemoteEditUpload:
 		if m.pendingRemoteEdit == nil {
 			return m, nil
@@ -1257,6 +1456,41 @@ func (m *Model) activePanel() *panel.Model {
 		return &m.leftPanel
 	}
 	return &m.rightPanel
+}
+
+// ActivePanelLocalPath returns the focused local directory for shell integration.
+func (m Model) ActivePanelLocalPath() (string, bool) {
+	if m.focus == FocusLeft {
+		return m.leftPanel.LocalPath()
+	}
+	return m.rightPanel.LocalPath()
+}
+
+func (m *Model) inactivePanelModel() *panel.Model {
+	if m.focus == FocusLeft {
+		return &m.rightPanel
+	}
+	return &m.leftPanel
+}
+
+func (m *Model) closeQuickView() {
+	m.quickView = nil
+	m.quickFocus = false
+}
+
+func (m *Model) syncQuickView() tea.Cmd {
+	if m.quickView == nil {
+		return nil
+	}
+	entry := m.activePanel().CurrentEntry()
+	if entry == nil || entry.Name == ".." || entry.URI.Scheme != midfs.SchemeFile {
+		m.closeQuickView()
+		return nil
+	}
+	if m.quickView.Target() == entry.URI.String() {
+		return nil
+	}
+	return m.quickView.SetTarget(*entry)
 }
 
 func (m *Model) toggleFocus() {
@@ -1281,4 +1515,11 @@ func (m *Model) recalcLayout() {
 
 	m.leftPanel.SetSize(panelWidth, panelHeight)
 	m.rightPanel.SetSize(rightWidth, panelHeight)
+	if m.quickView != nil {
+		previewWidth := rightWidth
+		if m.focus == FocusRight {
+			previewWidth = panelWidth
+		}
+		m.quickView.SetSize(previewWidth, panelHeight)
+	}
 }

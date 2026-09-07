@@ -176,6 +176,81 @@ func TestSelectAllInvertAndFooterCount(t *testing.T) {
 	}
 }
 
+func TestPanelFiltersHiddenEntries(t *testing.T) {
+	t.Parallel()
+	root := t.TempDir()
+	for _, name := range []string{"visible.txt", ".secret"} {
+		if err := os.WriteFile(filepath.Join(root, name), []byte(name), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	router := midfs.NewRouter(localfs.New(), archivefs.New())
+	model := New(router, midfs.NewFileURI(root), KeyMap{})
+	model.SetShowHidden(false)
+	loadPanelDir(t, &model)
+	if findEntry(&model, ".secret") >= 0 {
+		t.Fatal("hidden entry is visible while showHidden=false")
+	}
+	if findEntry(&model, "visible.txt") < 0 {
+		t.Fatal("visible entry was filtered")
+	}
+	model.ToggleHidden()
+	loadPanelDir(t, &model)
+	if findEntry(&model, ".secret") < 0 {
+		t.Fatal("hidden entry is missing after ToggleHidden")
+	}
+}
+
+func TestSelectAndDeselectByPattern(t *testing.T) {
+	t.Parallel()
+	model, _ := newSelectionTestModel(t)
+	if err := model.SelectByPattern("*.txt"); err != nil {
+		t.Fatal(err)
+	}
+	if got := len(model.SelectedURIs()); got != 3 {
+		t.Fatalf("selected count = %d, want 3", got)
+	}
+	if err := model.DeselectByPattern("b*"); err != nil {
+		t.Fatal(err)
+	}
+	if model.selected[findEntryIndex(t, &model, "beta.txt")] {
+		t.Fatal("beta.txt remained selected")
+	}
+	before := len(model.selected)
+	if err := model.SelectByPattern("["); err == nil {
+		t.Fatal("invalid pattern returned nil error")
+	}
+	if len(model.selected) != before {
+		t.Fatal("invalid pattern changed selection")
+	}
+}
+
+func TestEnterExecuteOnlyRunsLocalExecutable(t *testing.T) {
+	t.Parallel()
+	root := t.TempDir()
+	executable := filepath.Join(root, "run-me")
+	plain := filepath.Join(root, "read-me")
+	if err := os.WriteFile(executable, []byte("#!/bin/sh\n"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(plain, []byte("text"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	router := midfs.NewRouter(localfs.New(), archivefs.New())
+	model := New(router, midfs.NewFileURI(root), KeyMap{})
+	model.SetEnterAction("execute")
+	loadPanelDir(t, &model)
+
+	model.RestoreCursor("run-me")
+	if _, ok := model.handleEnter()().(ExecuteFileMsg); !ok {
+		t.Fatalf("executable message = %T, want ExecuteFileMsg", model.handleEnter()())
+	}
+	model.RestoreCursor("read-me")
+	if _, ok := model.handleEnter()().(OpenFileMsg); !ok {
+		t.Fatalf("plain file message = %T, want OpenFileMsg", model.handleEnter()())
+	}
+}
+
 func loadPanelDir(t *testing.T, model *Model) {
 	t.Helper()
 
@@ -221,6 +296,15 @@ func findEntryIndex(t *testing.T, model *Model, name string) int {
 		}
 	}
 	t.Fatalf("entry %q not found", name)
+	return -1
+}
+
+func findEntry(model *Model, name string) int {
+	for index, entry := range model.entries {
+		if entry.Name == name {
+			return index
+		}
+	}
 	return -1
 }
 
