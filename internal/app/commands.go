@@ -11,9 +11,9 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 
-	"github.com/kooler/MiddayCommander/internal/actions"
-	midfs "github.com/kooler/MiddayCommander/internal/fs"
-	"github.com/kooler/MiddayCommander/internal/transfer"
+	"github.com/tungpastry/MiddayCommander/internal/actions"
+	midfs "github.com/tungpastry/MiddayCommander/internal/fs"
+	"github.com/tungpastry/MiddayCommander/internal/transfer"
 )
 
 type copyDoneMsg struct{ err error }

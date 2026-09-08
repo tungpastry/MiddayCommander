@@ -12,8 +12,8 @@ import (
 	"github.com/charmbracelet/bubbles/key"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
-	"github.com/kooler/MiddayCommander/internal/ui/overlay"
-	"github.com/kooler/MiddayCommander/internal/ui/theme"
+	"github.com/tungpastry/MiddayCommander/internal/ui/overlay"
+	"github.com/tungpastry/MiddayCommander/internal/ui/theme"
 )
 
 // ImagePreviewModel handles the image preview overlay.

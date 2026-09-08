@@ -7,10 +7,10 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 
-	midfs "github.com/kooler/MiddayCommander/internal/fs"
-	"github.com/kooler/MiddayCommander/internal/transfer"
-	"github.com/kooler/MiddayCommander/internal/ui/overlay"
-	"github.com/kooler/MiddayCommander/internal/ui/theme"
+	midfs "github.com/tungpastry/MiddayCommander/internal/fs"
+	"github.com/tungpastry/MiddayCommander/internal/transfer"
+	"github.com/tungpastry/MiddayCommander/internal/ui/overlay"
+	"github.com/tungpastry/MiddayCommander/internal/ui/theme"
 )
 
 type TransferOptionsSubmitMsg struct {

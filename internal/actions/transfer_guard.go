@@ -4,7 +4,7 @@ import (
 	"errors"
 	"fmt"
 
-	midfs "github.com/kooler/MiddayCommander/internal/fs"
+	midfs "github.com/tungpastry/MiddayCommander/internal/fs"
 )
 
 // ErrSFTPTransfersDeferred marks copy/move flows that are intentionally held

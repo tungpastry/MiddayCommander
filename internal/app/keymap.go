@@ -3,7 +3,7 @@ package app
 import (
 	"github.com/charmbracelet/bubbles/key"
 
-	"github.com/kooler/MiddayCommander/internal/config"
+	"github.com/tungpastry/MiddayCommander/internal/config"
 )
 
 // KeyMap defines all global keybindings.

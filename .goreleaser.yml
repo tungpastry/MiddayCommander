@@ -1,7 +1,14 @@
 version: 2
 
+project_name: MiddayCommander
+
+before:
+  hooks:
+    - go mod vendor
+
 builds:
-  - binary: mdc
+  - id: mdc
+    binary: mdc
     env:
       - CGO_ENABLED=0
     goos:
@@ -18,14 +25,27 @@ builds:
       - -X main.date={{.Date}}
 
 archives:
-  - format: tar.gz
+  - ids:
+      - mdc
+    formats:
+      - tar.gz
     name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
     format_overrides:
       - goos: windows
-        format: zip
+        formats:
+          - zip
     files:
       - LICENSE
       - README.md
+
+source:
+  enabled: true
+  name_template: "{{ .ProjectName }}_{{ .Version }}_source"
+  format: tar.gz
+  prefix_template: "{{ .ProjectName }}-{{ .Version }}/"
+  files:
+    - vendor/modules.txt
+    - vendor/**/*
 
 checksum:
   name_template: checksums.txt
@@ -41,25 +61,20 @@ changelog:
 
 nfpms:
   - package_name: mdc
-    vendor: kooler
-    homepage: https://github.com/kooler/MiddayCommander
-    maintainer: kooler
+    ids:
+      - mdc
+    vendor: tungpastry
+    homepage: https://github.com/tungpastry/MiddayCommander
+    maintainer: Tung Nguyen Thanh <tungpastry@users.noreply.github.com>
     description: "A modern dual-panel terminal file manager"
     license: MIT
     formats:
       - deb
       - rpm
 
-brews:
-  - repository:
-      owner: kooler
-      name: homebrew-apps
-      token: "{{ .Env.HOMEBREW_TAP_TOKEN }}"
-    directory: Formula
-    homepage: https://github.com/kooler/MiddayCommander
-    description: "A modern dual-panel terminal file manager"
-    license: MIT
-    test: |
-      system "#{bin}/mdc", "--version"
-    install: |
-      bin.install "mdc"
+release:
+  github:
+    owner: tungpastry
+    name: MiddayCommander
+  make_latest: true
+  mode: replace

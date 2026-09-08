@@ -3,9 +3,9 @@ package sftp_test
 import (
 	"testing"
 
-	midfs "github.com/kooler/MiddayCommander/internal/fs"
-	sftpfs "github.com/kooler/MiddayCommander/internal/fs/sftp"
-	"github.com/kooler/MiddayCommander/internal/profiles"
+	midfs "github.com/tungpastry/MiddayCommander/internal/fs"
+	sftpfs "github.com/tungpastry/MiddayCommander/internal/fs/sftp"
+	"github.com/tungpastry/MiddayCommander/internal/profiles"
 )
 
 func TestFromProfileBuildsCanonicalURI(t *testing.T) {

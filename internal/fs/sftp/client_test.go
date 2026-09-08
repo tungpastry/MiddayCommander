@@ -14,8 +14,8 @@ import (
 	"strconv"
 	"testing"
 
-	sftpfs "github.com/kooler/MiddayCommander/internal/fs/sftp"
-	"github.com/kooler/MiddayCommander/internal/profiles"
+	sftpfs "github.com/tungpastry/MiddayCommander/internal/fs/sftp"
+	"github.com/tungpastry/MiddayCommander/internal/profiles"
 	pkgsftp "github.com/pkg/sftp"
 	"golang.org/x/crypto/ssh"
 	"golang.org/x/crypto/ssh/knownhosts"

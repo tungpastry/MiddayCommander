@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/kooler/MiddayCommander/internal/audit"
+	"github.com/tungpastry/MiddayCommander/internal/audit"
 )
 
 func TestFileLoggerWritesJSONLines(t *testing.T) {

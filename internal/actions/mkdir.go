@@ -3,7 +3,7 @@ package actions
 import (
 	"context"
 
-	midfs "github.com/kooler/MiddayCommander/internal/fs"
+	midfs "github.com/tungpastry/MiddayCommander/internal/fs"
 )
 
 func Mkdir(ctx context.Context, router *midfs.Router, uri midfs.URI) error {

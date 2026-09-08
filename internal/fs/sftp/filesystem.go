@@ -9,7 +9,7 @@ import (
 	"path"
 	"strings"
 
-	midfs "github.com/kooler/MiddayCommander/internal/fs"
+	midfs "github.com/tungpastry/MiddayCommander/internal/fs"
 	pkgsftp "github.com/pkg/sftp"
 )
 

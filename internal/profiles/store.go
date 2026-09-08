@@ -7,7 +7,7 @@ import (
 
 	"github.com/BurntSushi/toml"
 
-	"github.com/kooler/MiddayCommander/internal/config"
+	"github.com/tungpastry/MiddayCommander/internal/config"
 )
 
 type Store struct {

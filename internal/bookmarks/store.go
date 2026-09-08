@@ -8,8 +8,8 @@ import (
 	"sort"
 	"time"
 
-	"github.com/kooler/MiddayCommander/internal/config"
-	midfs "github.com/kooler/MiddayCommander/internal/fs"
+	"github.com/tungpastry/MiddayCommander/internal/config"
+	midfs "github.com/tungpastry/MiddayCommander/internal/fs"
 )
 
 type Bookmark struct {

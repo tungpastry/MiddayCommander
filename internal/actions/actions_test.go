@@ -9,11 +9,11 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/kooler/MiddayCommander/internal/actions"
-	midfs "github.com/kooler/MiddayCommander/internal/fs"
-	archivefs "github.com/kooler/MiddayCommander/internal/fs/archive"
-	localfs "github.com/kooler/MiddayCommander/internal/fs/local"
-	sftpfs "github.com/kooler/MiddayCommander/internal/fs/sftp"
+	"github.com/tungpastry/MiddayCommander/internal/actions"
+	midfs "github.com/tungpastry/MiddayCommander/internal/fs"
+	archivefs "github.com/tungpastry/MiddayCommander/internal/fs/archive"
+	localfs "github.com/tungpastry/MiddayCommander/internal/fs/local"
+	sftpfs "github.com/tungpastry/MiddayCommander/internal/fs/sftp"
 )
 
 func TestFileActionsSmoke(t *testing.T) {

@@ -1,4 +1,5 @@
 .claude
 mdc
 dist/
+vendor/
 ._*

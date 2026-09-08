@@ -9,11 +9,11 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 
-	midfs "github.com/kooler/MiddayCommander/internal/fs"
-	sftpfs "github.com/kooler/MiddayCommander/internal/fs/sftp"
-	profilesstore "github.com/kooler/MiddayCommander/internal/profiles"
-	"github.com/kooler/MiddayCommander/internal/ui/overlay"
-	"github.com/kooler/MiddayCommander/internal/ui/theme"
+	midfs "github.com/tungpastry/MiddayCommander/internal/fs"
+	sftpfs "github.com/tungpastry/MiddayCommander/internal/fs/sftp"
+	profilesstore "github.com/tungpastry/MiddayCommander/internal/profiles"
+	"github.com/tungpastry/MiddayCommander/internal/ui/overlay"
+	"github.com/tungpastry/MiddayCommander/internal/ui/theme"
 )
 
 type ConnectOpenMsg struct{}

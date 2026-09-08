@@ -3,7 +3,7 @@ package actions
 import (
 	"context"
 
-	midfs "github.com/kooler/MiddayCommander/internal/fs"
+	midfs "github.com/tungpastry/MiddayCommander/internal/fs"
 )
 
 func Delete(ctx context.Context, router *midfs.Router, paths []midfs.URI, progressFn func(Progress)) error {

@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/kooler/MiddayCommander/internal/audit"
+	"github.com/tungpastry/MiddayCommander/internal/audit"
 )
 
 func TestReadRecentReturnsNewestFirst(t *testing.T) {

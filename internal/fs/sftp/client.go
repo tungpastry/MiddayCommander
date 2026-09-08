@@ -8,8 +8,8 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/kooler/MiddayCommander/internal/profiles"
 	pkgsftp "github.com/pkg/sftp"
+	"github.com/tungpastry/MiddayCommander/internal/profiles"
 	"golang.org/x/crypto/ssh"
 )
 
@@ -129,7 +129,7 @@ func dialSSH(
 			_ = conn.Close()
 			return nil, fmt.Errorf("set deadline for ssh %s: %w", addr, err)
 		}
-		defer conn.SetDeadline(time.Time{})
+		defer func() { _ = conn.SetDeadline(time.Time{}) }()
 	}
 
 	clientConn, chans, reqs, err := ssh.NewClientConn(conn, addr, config)
