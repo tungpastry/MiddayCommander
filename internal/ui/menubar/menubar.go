@@ -7,8 +7,8 @@ import (
 
 	"github.com/charmbracelet/lipgloss"
 
-	"github.com/kooler/MiddayCommander/internal/config"
-	"github.com/kooler/MiddayCommander/internal/ui/theme"
+	"github.com/tungpastry/MiddayCommander/internal/config"
+	"github.com/tungpastry/MiddayCommander/internal/ui/theme"
 )
 
 // Item represents a single menu bar button.

@@ -3,7 +3,7 @@ package menubar
 import (
 	"testing"
 
-	"github.com/kooler/MiddayCommander/internal/config"
+	"github.com/tungpastry/MiddayCommander/internal/config"
 )
 
 func TestShiftItemsIncludesCopyPathAndRename(t *testing.T) {

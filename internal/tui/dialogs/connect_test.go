@@ -6,8 +6,8 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 
-	midfs "github.com/kooler/MiddayCommander/internal/fs"
-	profilesstore "github.com/kooler/MiddayCommander/internal/profiles"
+	midfs "github.com/tungpastry/MiddayCommander/internal/fs"
+	profilesstore "github.com/tungpastry/MiddayCommander/internal/profiles"
 )
 
 func TestConnectModelBuildsSFTPUri(t *testing.T) {

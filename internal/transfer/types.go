@@ -3,8 +3,8 @@ package transfer
 import (
 	"time"
 
-	"github.com/kooler/MiddayCommander/internal/actions"
-	midfs "github.com/kooler/MiddayCommander/internal/fs"
+	"github.com/tungpastry/MiddayCommander/internal/actions"
+	midfs "github.com/tungpastry/MiddayCommander/internal/fs"
 )
 
 type Operation string

@@ -12,7 +12,7 @@ import (
 
 	"github.com/mholt/archiver/v4"
 
-	midfs "github.com/kooler/MiddayCommander/internal/fs"
+	midfs "github.com/tungpastry/MiddayCommander/internal/fs"
 )
 
 type FS struct{}

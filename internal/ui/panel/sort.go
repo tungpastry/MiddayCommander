@@ -4,7 +4,7 @@ import (
 	"sort"
 	"strings"
 
-	midfs "github.com/kooler/MiddayCommander/internal/fs"
+	midfs "github.com/tungpastry/MiddayCommander/internal/fs"
 )
 
 type SortMode int

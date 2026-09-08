@@ -8,9 +8,9 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 
-	"github.com/kooler/MiddayCommander/internal/config"
-	"github.com/kooler/MiddayCommander/internal/ui/overlay"
-	"github.com/kooler/MiddayCommander/internal/ui/theme"
+	"github.com/tungpastry/MiddayCommander/internal/config"
+	"github.com/tungpastry/MiddayCommander/internal/ui/overlay"
+	"github.com/tungpastry/MiddayCommander/internal/ui/theme"
 )
 
 // DismissMsg is sent when the user closes help.

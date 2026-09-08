@@ -8,7 +8,7 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 
-	midfs "github.com/kooler/MiddayCommander/internal/fs"
+	midfs "github.com/tungpastry/MiddayCommander/internal/fs"
 )
 
 func TestBuildPathsForLocalAndSFTP(t *testing.T) {

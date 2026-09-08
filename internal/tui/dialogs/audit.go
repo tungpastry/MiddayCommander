@@ -7,9 +7,9 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 
-	"github.com/kooler/MiddayCommander/internal/audit"
-	"github.com/kooler/MiddayCommander/internal/ui/overlay"
-	"github.com/kooler/MiddayCommander/internal/ui/theme"
+	"github.com/tungpastry/MiddayCommander/internal/audit"
+	"github.com/tungpastry/MiddayCommander/internal/ui/overlay"
+	"github.com/tungpastry/MiddayCommander/internal/ui/theme"
 )
 
 type AuditDismissMsg struct{}

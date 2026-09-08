@@ -1,4 +1,4 @@
-module github.com/kooler/MiddayCommander
+module github.com/tungpastry/MiddayCommander
 
 go 1.26.1
 

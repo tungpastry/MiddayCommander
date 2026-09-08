@@ -14,8 +14,8 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 
-	"github.com/kooler/MiddayCommander/internal/config"
-	midfs "github.com/kooler/MiddayCommander/internal/fs"
+	"github.com/tungpastry/MiddayCommander/internal/config"
+	midfs "github.com/tungpastry/MiddayCommander/internal/fs"
 )
 
 type remoteWorkfile struct {

@@ -1,8 +1,10 @@
 # Midday Commander
 
 ![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)
-![Go Version](https://img.shields.io/badge/Go-1.21%2B-blue.svg)
+![Go Version](https://img.shields.io/badge/Go-1.26%2B-blue.svg)
 ![Status](https://img.shields.io/badge/Status-Active-success.svg)
+[![CI](https://github.com/tungpastry/MiddayCommander/actions/workflows/ci.yml/badge.svg)](https://github.com/tungpastry/MiddayCommander/actions/workflows/ci.yml)
+[![Latest Release](https://img.shields.io/github/v/release/tungpastry/MiddayCommander)](https://github.com/tungpastry/MiddayCommander/releases/latest)
 
 **Midday Commander (`mdc`)** là một trình quản lý tệp trên terminal hiện đại với giao diện hai bảng (dual-panel), được viết bằng Go và lấy cảm hứng từ Midnight Commander cổ điển.
 
@@ -30,9 +32,14 @@ Dự án giữ nguyên luồng công việc điều khiển bằng bàn phím qu
 ### 1. Cài đặt
 Nếu bạn dùng macOS và đã cài đặt Homebrew:
 ```bash
-brew install kooler/apps/MiddayCommander
+brew install tungpastry/apps/middaycommander
 ```
-Hoặc tải bản dựng sẵn từ trang [Releases](https://github.com/kooler/MiddayCommander/releases).
+Hoặc tải bản dựng sẵn từ trang [Releases](https://github.com/tungpastry/MiddayCommander/releases).
+
+Bạn cũng có thể cài trực tiếp bằng Go:
+```bash
+go install github.com/tungpastry/MiddayCommander@latest
+```
 
 ### 2. Chạy ứng dụng
 ```bash
@@ -72,4 +79,9 @@ Dự án tuân thủ [Quy tắc ứng xử](CODE_OF_CONDUCT.md) để đảm b�
 
 Phân phối dưới giấy phép **MIT**. Xem tệp [LICENSE](LICENSE) để biết thêm chi tiết.
 
-**Tác giả:** Tung Nguyen Thanh - [GitHub](https://github.com/kooler)
+## Nguồn dự án và bảo trì
+
+Fork này được duy trì và phát hành bởi **Tung Nguyen Thanh**
+([@tungpastry](https://github.com/tungpastry)). Midday Commander bắt nguồn từ
+[kooler/MiddayCommander](https://github.com/kooler/MiddayCommander); lịch sử Git
+và giấy phép MIT được giữ nguyên để ghi nhận dự án upstream.

@@ -5,8 +5,8 @@ import (
 	"path"
 	"strings"
 
-	midfs "github.com/kooler/MiddayCommander/internal/fs"
-	"github.com/kooler/MiddayCommander/internal/profiles"
+	midfs "github.com/tungpastry/MiddayCommander/internal/fs"
+	"github.com/tungpastry/MiddayCommander/internal/profiles"
 )
 
 const (

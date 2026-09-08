@@ -8,9 +8,9 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 
-	"github.com/kooler/MiddayCommander/internal/app"
-	"github.com/kooler/MiddayCommander/internal/config"
-	"github.com/kooler/MiddayCommander/internal/platform"
+	"github.com/tungpastry/MiddayCommander/internal/app"
+	"github.com/tungpastry/MiddayCommander/internal/config"
+	"github.com/tungpastry/MiddayCommander/internal/platform"
 )
 
 var (

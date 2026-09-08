@@ -7,10 +7,10 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 
-	bookmarkstore "github.com/kooler/MiddayCommander/internal/bookmarks"
-	midfs "github.com/kooler/MiddayCommander/internal/fs"
-	"github.com/kooler/MiddayCommander/internal/ui/overlay"
-	"github.com/kooler/MiddayCommander/internal/ui/theme"
+	bookmarkstore "github.com/tungpastry/MiddayCommander/internal/bookmarks"
+	midfs "github.com/tungpastry/MiddayCommander/internal/fs"
+	"github.com/tungpastry/MiddayCommander/internal/ui/overlay"
+	"github.com/tungpastry/MiddayCommander/internal/ui/theme"
 )
 
 type BookmarkSelectMsg struct {

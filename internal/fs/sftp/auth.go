@@ -8,7 +8,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/kooler/MiddayCommander/internal/profiles"
+	"github.com/tungpastry/MiddayCommander/internal/profiles"
 	"golang.org/x/crypto/ssh"
 	"golang.org/x/crypto/ssh/agent"
 )

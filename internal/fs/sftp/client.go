@@ -8,7 +8,7 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/kooler/MiddayCommander/internal/profiles"
+	"github.com/tungpastry/MiddayCommander/internal/profiles"
 	pkgsftp "github.com/pkg/sftp"
 	"golang.org/x/crypto/ssh"
 )

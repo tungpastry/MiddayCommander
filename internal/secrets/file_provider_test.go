@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/kooler/MiddayCommander/internal/secrets"
+	"github.com/tungpastry/MiddayCommander/internal/secrets"
 )
 
 func TestFileProviderStoreLoadDelete(t *testing.T) {

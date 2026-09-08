@@ -11,14 +11,14 @@ import (
 	"strings"
 	"testing"
 
-	midfs "github.com/kooler/MiddayCommander/internal/fs"
-	archivefs "github.com/kooler/MiddayCommander/internal/fs/archive"
-	localfs "github.com/kooler/MiddayCommander/internal/fs/local"
-	sftpfs "github.com/kooler/MiddayCommander/internal/fs/sftp"
-	"github.com/kooler/MiddayCommander/internal/profiles"
-	"github.com/kooler/MiddayCommander/internal/tui/dialogs"
-	"github.com/kooler/MiddayCommander/internal/ui/fuzzy"
-	"github.com/kooler/MiddayCommander/internal/ui/panel"
+	midfs "github.com/tungpastry/MiddayCommander/internal/fs"
+	archivefs "github.com/tungpastry/MiddayCommander/internal/fs/archive"
+	localfs "github.com/tungpastry/MiddayCommander/internal/fs/local"
+	sftpfs "github.com/tungpastry/MiddayCommander/internal/fs/sftp"
+	"github.com/tungpastry/MiddayCommander/internal/profiles"
+	"github.com/tungpastry/MiddayCommander/internal/tui/dialogs"
+	"github.com/tungpastry/MiddayCommander/internal/ui/fuzzy"
+	"github.com/tungpastry/MiddayCommander/internal/ui/panel"
 )
 
 func TestWalkCmdSupportsSFTP(t *testing.T) {

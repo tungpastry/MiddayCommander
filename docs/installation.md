@@ -7,20 +7,20 @@ Midday Commander có thể được cài đặt thông qua các trình quản l�
 ### macOS
 Sử dụng Homebrew để cài đặt bản cập nhật mới nhất:
 ```bash
-brew install kooler/apps/MiddayCommander
+brew install tungpastry/apps/middaycommander
 ```
 
 ### Windows / Linux
-Tải tệp nhị phân (`.exe` cho Windows hoặc binary cho Linux) từ trang [Releases](https://github.com/kooler/MiddayCommander/releases). Đặt tệp vào một thư mục trong biến môi trường `PATH` của bạn.
+Tải archive phù hợp từ trang [Releases](https://github.com/tungpastry/MiddayCommander/releases), giải nén và đặt `mdc` (`mdc.exe` trên Windows) vào một thư mục trong biến môi trường `PATH`.
 
 ## 2. Biên dịch từ mã nguồn (Dành cho Developer)
 
-Yêu cầu: **Go >= 1.21**
+Yêu cầu: **Go >= 1.26**
 
 ### Các bước thực hiện:
 1. Clone repo:
    ```bash
-   git clone https://github.com/kooler/MiddayCommander.git
+   git clone https://github.com/tungpastry/MiddayCommander.git
    cd MiddayCommander
    ```
 2. Biên dịch:
@@ -33,6 +33,12 @@ Yêu cầu: **Go >= 1.21**
    ```bash
    ./mdc --version
    ```
+
+Ngoài ra có thể cài trực tiếp từ Go module chính thức:
+
+```bash
+go install github.com/tungpastry/MiddayCommander@latest
+```
 
 ## 3. Các mục tiêu Build khác (Makefile)
 

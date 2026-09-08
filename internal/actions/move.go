@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	midfs "github.com/kooler/MiddayCommander/internal/fs"
+	midfs "github.com/tungpastry/MiddayCommander/internal/fs"
 )
 
 func Move(ctx context.Context, router *midfs.Router, sources []midfs.URI, destDir midfs.URI, progressFn func(Progress)) error {

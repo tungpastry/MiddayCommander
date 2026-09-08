@@ -6,8 +6,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	midfs "github.com/kooler/MiddayCommander/internal/fs"
-	"github.com/kooler/MiddayCommander/internal/fs/local"
+	midfs "github.com/tungpastry/MiddayCommander/internal/fs"
+	"github.com/tungpastry/MiddayCommander/internal/fs/local"
 )
 
 func TestLocalFileSystemCRUD(t *testing.T) {

@@ -8,9 +8,9 @@ import (
 	"path/filepath"
 	"testing"
 
-	midfs "github.com/kooler/MiddayCommander/internal/fs"
-	archivefs "github.com/kooler/MiddayCommander/internal/fs/archive"
-	localfs "github.com/kooler/MiddayCommander/internal/fs/local"
+	midfs "github.com/tungpastry/MiddayCommander/internal/fs"
+	archivefs "github.com/tungpastry/MiddayCommander/internal/fs/archive"
+	localfs "github.com/tungpastry/MiddayCommander/internal/fs/local"
 )
 
 func TestRouterJoinParentAndDispatch(t *testing.T) {

@@ -9,7 +9,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	sftpfs "github.com/kooler/MiddayCommander/internal/fs/sftp"
+	sftpfs "github.com/tungpastry/MiddayCommander/internal/fs/sftp"
 	"golang.org/x/crypto/ssh"
 	"golang.org/x/crypto/ssh/knownhosts"
 )

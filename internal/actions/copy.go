@@ -6,7 +6,7 @@ import (
 	"io"
 	"os"
 
-	midfs "github.com/kooler/MiddayCommander/internal/fs"
+	midfs "github.com/tungpastry/MiddayCommander/internal/fs"
 )
 
 func Copy(ctx context.Context, router *midfs.Router, sources []midfs.URI, destDir midfs.URI, progressFn func(Progress)) error {

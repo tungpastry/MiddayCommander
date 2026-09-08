@@ -9,8 +9,8 @@ import (
 	"github.com/charmbracelet/bubbles/key"
 	tea "github.com/charmbracelet/bubbletea"
 
-	midfs "github.com/kooler/MiddayCommander/internal/fs"
-	archivefs "github.com/kooler/MiddayCommander/internal/fs/archive"
+	midfs "github.com/tungpastry/MiddayCommander/internal/fs"
+	archivefs "github.com/tungpastry/MiddayCommander/internal/fs/archive"
 )
 
 type KeyMap struct {

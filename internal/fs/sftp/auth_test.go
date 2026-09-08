@@ -14,8 +14,8 @@ import (
 	"strings"
 	"testing"
 
-	sftpfs "github.com/kooler/MiddayCommander/internal/fs/sftp"
-	"github.com/kooler/MiddayCommander/internal/profiles"
+	sftpfs "github.com/tungpastry/MiddayCommander/internal/fs/sftp"
+	"github.com/tungpastry/MiddayCommander/internal/profiles"
 	"golang.org/x/crypto/ssh/agent"
 )
 

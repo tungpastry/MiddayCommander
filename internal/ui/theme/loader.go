@@ -7,7 +7,7 @@ import (
 
 	"github.com/BurntSushi/toml"
 	"github.com/charmbracelet/lipgloss"
-	"github.com/kooler/MiddayCommander/internal/config"
+	"github.com/tungpastry/MiddayCommander/internal/config"
 )
 
 // ThemeFile is the TOML structure for a theme file.

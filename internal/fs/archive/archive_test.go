@@ -9,8 +9,8 @@ import (
 	"slices"
 	"testing"
 
-	midfs "github.com/kooler/MiddayCommander/internal/fs"
-	archivefs "github.com/kooler/MiddayCommander/internal/fs/archive"
+	midfs "github.com/tungpastry/MiddayCommander/internal/fs"
+	archivefs "github.com/tungpastry/MiddayCommander/internal/fs/archive"
 )
 
 func TestArchiveListReadAndParent(t *testing.T) {

@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	midfs "github.com/kooler/MiddayCommander/internal/fs"
+	midfs "github.com/tungpastry/MiddayCommander/internal/fs"
 )
 
 func TestSetTargetLoadsTextAndRejectsStaleResult(t *testing.T) {

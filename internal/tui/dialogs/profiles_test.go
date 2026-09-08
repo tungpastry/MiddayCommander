@@ -7,7 +7,7 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 
-	profilesstore "github.com/kooler/MiddayCommander/internal/profiles"
+	profilesstore "github.com/tungpastry/MiddayCommander/internal/profiles"
 )
 
 func TestProfilesModelSelectsProfileAsSFTPUri(t *testing.T) {

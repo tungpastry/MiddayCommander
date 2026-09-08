@@ -11,10 +11,10 @@ import (
 	"github.com/charmbracelet/bubbles/key"
 	tea "github.com/charmbracelet/bubbletea"
 
-	midfs "github.com/kooler/MiddayCommander/internal/fs"
-	archivefs "github.com/kooler/MiddayCommander/internal/fs/archive"
-	localfs "github.com/kooler/MiddayCommander/internal/fs/local"
-	"github.com/kooler/MiddayCommander/internal/ui/theme"
+	midfs "github.com/tungpastry/MiddayCommander/internal/fs"
+	archivefs "github.com/tungpastry/MiddayCommander/internal/fs/archive"
+	localfs "github.com/tungpastry/MiddayCommander/internal/fs/local"
+	"github.com/tungpastry/MiddayCommander/internal/ui/theme"
 )
 
 func TestPanelNavigatesIntoAndOutOfArchive(t *testing.T) {

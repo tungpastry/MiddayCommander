@@ -14,9 +14,9 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/kooler/MiddayCommander/internal/actions"
-	"github.com/kooler/MiddayCommander/internal/audit"
-	midfs "github.com/kooler/MiddayCommander/internal/fs"
+	"github.com/tungpastry/MiddayCommander/internal/actions"
+	"github.com/tungpastry/MiddayCommander/internal/audit"
+	midfs "github.com/tungpastry/MiddayCommander/internal/fs"
 )
 
 var (

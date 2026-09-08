@@ -8,8 +8,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/kooler/MiddayCommander/internal/bookmarks"
-	midfs "github.com/kooler/MiddayCommander/internal/fs"
+	"github.com/tungpastry/MiddayCommander/internal/bookmarks"
+	midfs "github.com/tungpastry/MiddayCommander/internal/fs"
 )
 
 func TestLoadStoreMigratesLegacyPathBookmarks(t *testing.T) {
