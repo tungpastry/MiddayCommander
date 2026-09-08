@@ -162,6 +162,7 @@ func writePrivateKey(t *testing.T, encrypted bool) string {
 	der := x509.MarshalPKCS1PrivateKey(privateKey)
 	var block *pem.Block
 	if encrypted {
+		//nolint:staticcheck // This fixture intentionally exercises legacy encrypted PEM support.
 		block, err = x509.EncryptPEMBlock(rand.Reader, "RSA PRIVATE KEY", der, []byte("secret"), x509.PEMCipherAES256)
 		if err != nil {
 			t.Fatalf("EncryptPEMBlock() error = %v", err)

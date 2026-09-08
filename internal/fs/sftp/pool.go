@@ -58,57 +58,55 @@ func (p *Pool) Client(ctx context.Context, opts Options) (*Client, error) {
 	}
 
 	key := connectionKey(normalized)
-	for {
-		p.mu.Lock()
-		if p.closed {
-			p.mu.Unlock()
-			return nil, ErrPoolClosed
-		}
-
-		if entry, ok := p.entries[key]; ok {
-			p.mu.Unlock()
-			select {
-			case <-entry.ready:
-				if entry.err != nil {
-					return nil, entry.err
-				}
-				return entry.client, nil
-			case <-ctx.Done():
-				return nil, ctx.Err()
-			}
-		}
-
-		entry := &poolEntry{ready: make(chan struct{})}
-		p.entries[key] = entry
+	p.mu.Lock()
+	if p.closed {
 		p.mu.Unlock()
+		return nil, ErrPoolClosed
+	}
 
-		client, err := p.connector(ctx, normalized)
-
-		p.mu.Lock()
-		if p.closed {
-			delete(p.entries, key)
-			entry.err = ErrPoolClosed
-			close(entry.ready)
-			p.mu.Unlock()
-			if client != nil {
-				_ = client.Close()
+	if entry, ok := p.entries[key]; ok {
+		p.mu.Unlock()
+		select {
+		case <-entry.ready:
+			if entry.err != nil {
+				return nil, entry.err
 			}
-			return nil, ErrPoolClosed
+			return entry.client, nil
+		case <-ctx.Done():
+			return nil, ctx.Err()
 		}
+	}
 
-		if err != nil {
-			delete(p.entries, key)
-			entry.err = err
-			close(entry.ready)
-			p.mu.Unlock()
-			return nil, err
-		}
+	entry := &poolEntry{ready: make(chan struct{})}
+	p.entries[key] = entry
+	p.mu.Unlock()
 
-		entry.client = client
+	client, err := p.connector(ctx, normalized)
+
+	p.mu.Lock()
+	if p.closed {
+		delete(p.entries, key)
+		entry.err = ErrPoolClosed
 		close(entry.ready)
 		p.mu.Unlock()
-		return client, nil
+		if client != nil {
+			_ = client.Close()
+		}
+		return nil, ErrPoolClosed
 	}
+
+	if err != nil {
+		delete(p.entries, key)
+		entry.err = err
+		close(entry.ready)
+		p.mu.Unlock()
+		return nil, err
+	}
+
+	entry.client = client
+	close(entry.ready)
+	p.mu.Unlock()
+	return client, nil
 }
 
 // Close closes every cached client and prevents future acquisitions.
